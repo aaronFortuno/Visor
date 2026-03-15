@@ -54,13 +54,13 @@ export async function initDatabase(path: string): Promise<SqlJsDatabase> {
   db.run("CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id)");
   db.run("CREATE INDEX IF NOT EXISTS idx_events_session_ts ON events(session_id, timestamp)");
 
-  // Persist to disk every 5 seconds
+  // Persist to disk every 5 seconds (catches event data)
   saveTimer = setInterval(() => saveDatabase(), 5000);
 
-  // Save on exit
-  process.on("exit", () => saveDatabase());
-  process.on("SIGINT", () => { saveDatabase(); process.exit(0); });
-  process.on("SIGTERM", () => { saveDatabase(); process.exit(0); });
+  // NOTE: Do NOT save on process.on("exit") — on Windows with kill,
+  // the db may already be in an inconsistent state and would overwrite
+  // the good save from execute(). Session data is saved immediately
+  // in execute() after every session write.
 
   return db;
 }
@@ -71,8 +71,8 @@ export function saveDatabase(): void {
     const data = db.export();
     const buffer = Buffer.from(data);
     writeFileSync(dbPath, buffer);
-  } catch {
-    // Ignore save errors during shutdown
+  } catch (err) {
+    console.error("  [db] Save error:", err);
   }
 }
 
@@ -102,7 +102,7 @@ function queryOne(sql: string, params: any[] = []): any | null {
 
 function execute(sql: string, params: any[] = []): void {
   db.run(sql, params);
-  // Save after writes
+  // Persist immediately — critical for session data surviving crashes
   saveDatabase();
 }
 

@@ -5,6 +5,7 @@ const STATUS_STYLES: Record<SessionStatus, { dot: string; text: string; label: s
   paused: { dot: "bg-visor-yellow", text: "text-visor-yellow", label: "Paused" },
   stopped: { dot: "bg-gray-500", text: "text-gray-400", label: "Stopped" },
   error: { dot: "bg-visor-red", text: "text-visor-red", label: "Error" },
+  suspended: { dot: "bg-blue-500", text: "text-blue-400", label: "Suspended" },
 };
 
 const TYPE_STYLES: Record<SessionType, { bg: string; text: string; label: string }> = {

@@ -1,7 +1,7 @@
 // ── Session types ──────────────────────────────────────────
 
 export type SessionType = "claude-code" | "opencode" | "ollama" | "custom";
-export type SessionStatus = "running" | "paused" | "stopped" | "error";
+export type SessionStatus = "running" | "paused" | "stopped" | "error" | "suspended";
 
 export interface Session {
   id: string;

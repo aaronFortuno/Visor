@@ -1,5 +1,5 @@
 export type SessionType = "claude-code" | "opencode" | "ollama" | "custom";
-export type SessionStatus = "running" | "paused" | "stopped" | "error";
+export type SessionStatus = "running" | "paused" | "stopped" | "error" | "suspended";
 export type EventKind = "stdout" | "stderr" | "stdin" | "system" | "question" | "chat";
 
 export interface Session {
