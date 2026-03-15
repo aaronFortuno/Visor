@@ -1,0 +1,22 @@
+{
+  "name": "visor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Remote agent session manager — monitor and interact with AI agents from any device",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web",
+    "cli"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=server & npm run dev --workspace=web",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:web": "npm run dev --workspace=web",
+    "build:web": "npm run build --workspace=web",
+    "build": "npm run build:web",
+    "start": "node --experimental-strip-types start-with-env.js",
+    "start:bare": "node --experimental-strip-types server/src/index.ts",
+    "production": "npm run build && npm run start"
+  }
+}

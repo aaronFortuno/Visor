@@ -1,0 +1,20 @@
+{
+  "name": "@visor/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "visor": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "node --experimental-strip-types src/index.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "strip-ansi": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.14",
+    "@types/node": "^22.15.0"
+  }
+}
