@@ -78,6 +78,14 @@ export function listSessions(): Session[] {
   return getAllSessions();
 }
 
+export function renameSession(id: string, name: string): Session | null {
+  const session = getSessionById(id);
+  if (!session) return null;
+  const updated = updateSession(id, { name });
+  if (updated) bus.emit("session:update", { session: updated });
+  return updated;
+}
+
 export function restartSession(id: string): Session {
   const session = getSessionById(id);
   if (!session) throw new Error(`Session ${id} not found`);

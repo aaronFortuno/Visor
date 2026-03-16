@@ -13,6 +13,7 @@ interface Props {
 export function Dashboard({ sessions, onSelectSession, connected }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [localSessions, setLocalSessions] = useState<Session[]>([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (sessions.length > 0) {
@@ -22,9 +23,17 @@ export function Dashboard({ sessions, onSelectSession, connected }: Props) {
     }
   }, [sessions]);
 
-  const running = localSessions.filter((s) => s.status === "running");
-  const errored = localSessions.filter((s) => s.status === "error");
-  const stopped = localSessions.filter((s) => s.status !== "running" && s.status !== "error");
+  const filtered = search
+    ? localSessions.filter(s =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.type.toLowerCase().includes(search.toLowerCase()) ||
+        s.command.toLowerCase().includes(search.toLowerCase())
+      )
+    : localSessions;
+
+  const running = filtered.filter((s) => s.status === "running");
+  const errored = filtered.filter((s) => s.status === "error");
+  const stopped = filtered.filter((s) => s.status !== "running" && s.status !== "error");
 
   return (
     <div className="flex flex-col h-full">
@@ -37,6 +46,32 @@ export function Dashboard({ sessions, onSelectSession, connected }: Props) {
             {connected ? "Connected" : "Disconnected"}
           </span>
         </div>
+
+        {/* Search */}
+        {localSessions.length > 0 && (
+          <div className="relative flex-1 max-w-xs mx-2">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search sessions..."
+              className="w-full pl-8 pr-7 py-1.5 bg-visor-bg border border-visor-border rounded-lg text-xs text-white placeholder-gray-500 outline-none focus:border-visor-accent transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-1">
           {/* Notifications toggle */}

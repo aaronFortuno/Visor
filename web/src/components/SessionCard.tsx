@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import type { Session } from "../lib/types";
 import { StatusBadge, TypeBadge } from "./StatusBadge";
 
@@ -7,7 +8,13 @@ interface Props {
 }
 
 export function SessionCard({ session, onClick }: Props) {
-  const timeAgo = formatTimeAgo(session.updatedAt);
+  const [timeAgo, setTimeAgo] = useState(formatTimeAgo(session.updatedAt));
+
+  useEffect(() => {
+    setTimeAgo(formatTimeAgo(session.updatedAt));
+    const interval = setInterval(() => setTimeAgo(formatTimeAgo(session.updatedAt)), 30_000);
+    return () => clearInterval(interval);
+  }, [session.updatedAt]);
 
   return (
     <button

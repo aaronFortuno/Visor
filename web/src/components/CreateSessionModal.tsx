@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createSession, fetchServerInfo } from "../lib/api";
+import { createSession, fetchServerInfo, fetchOllamaModels } from "../lib/api";
 import type { Session } from "../lib/types";
 
 interface Props {
@@ -14,10 +14,18 @@ interface Project {
   markers: string[];
 }
 
-function getAgents(defaultShell: string) {
+interface Agent {
+  label: string;
+  type: string;
+  command: string;
+  isOllama?: boolean;
+}
+
+function getAgents(defaultShell: string): Agent[] {
   return [
     { label: "opencode", type: "opencode", command: "opencode" },
     { label: "Claude Code", type: "claude-code", command: "claude" },
+    { label: "Ollama", type: "ollama", command: "ollama", isOllama: true },
     { label: "Shell", type: "custom", command: defaultShell },
   ];
 }
@@ -30,6 +38,9 @@ export function CreateSessionModal({ open, onClose, onCreated }: Props) {
   const [customCwd, setCustomCwd] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [ollamaModels, setOllamaModels] = useState<Array<{ name: string; size: number }>>([]);
+  const [ollamaModelsLoading, setOllamaModelsLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("");
 
   // Fetch projects and server info on open
   useEffect(() => {
@@ -46,28 +57,62 @@ export function CreateSessionModal({ open, onClose, onCreated }: Props) {
       .catch(() => {});
   }, [open]);
 
+  // Load Ollama models when the Ollama agent is selected
+  const currentAgent = agents[selectedAgent];
+  useEffect(() => {
+    if (!open || !currentAgent?.isOllama) return;
+    setOllamaModelsLoading(true);
+    fetchOllamaModels()
+      .then((models) => {
+        setOllamaModels(models);
+        if (models.length > 0 && !selectedModel) {
+          setSelectedModel(models[0].name);
+        }
+      })
+      .finally(() => setOllamaModelsLoading(false));
+  }, [open, currentAgent?.isOllama]); // eslint-disable-line
+
   if (!open) return null;
 
   const agent = agents[selectedAgent];
+  const isOllama = !!agent.isOllama;
   const cwd = selectedProject?.path || customCwd;
 
   const handleLaunch = async () => {
-    if (!cwd) { setError("Select a project or enter a directory"); return; }
+    if (isOllama) {
+      if (!selectedModel) { setError("Select an Ollama model"); return; }
+    } else {
+      if (!cwd) { setError("Select a project or enter a directory"); return; }
+    }
     setError("");
     setLoading(true);
     try {
-      const name = `${selectedProject?.name || "session"} (${agent.label})`;
-      const session = await createSession({
-        name,
-        type: agent.type,
-        command: agent.command,
-        cwd,
-        autoStart: true,
-      });
-      onCreated(session);
+      if (isOllama) {
+        const name = `Ollama (${selectedModel})`;
+        const session = await createSession({
+          name,
+          type: "ollama",
+          command: "ollama",
+          args: [selectedModel],
+          cwd: ".",
+          autoStart: false,
+        });
+        onCreated(session);
+      } else {
+        const name = `${selectedProject?.name || "session"} (${agent.label})`;
+        const session = await createSession({
+          name,
+          type: agent.type,
+          command: agent.command,
+          cwd,
+          autoStart: true,
+        });
+        onCreated(session);
+      }
       onClose();
       setSelectedProject(null);
       setCustomCwd("");
+      setSelectedModel("");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -112,62 +157,127 @@ export function CreateSessionModal({ open, onClose, onCreated }: Props) {
           </div>
         </div>
 
-        {/* Project list */}
+        {/* Content area — Ollama model picker or project list */}
         <div className="flex-1 overflow-y-auto px-5 border-t border-visor-border">
-          <p className="text-xs text-gray-500 mt-3 mb-2 uppercase tracking-wider font-semibold">Select project</p>
+          {isOllama ? (
+            <>
+              <p className="text-xs text-gray-500 mt-3 mb-2 uppercase tracking-wider font-semibold">Select model</p>
 
-          {projects.length === 0 ? (
-            <p className="text-sm text-gray-500 py-4 text-center">No projects found in ~/Projects</p>
+              {ollamaModelsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-5 h-5 border-2 border-visor-accent border-t-transparent rounded-full animate-spin" />
+                  <span className="ml-2 text-sm text-gray-400">Loading models...</span>
+                </div>
+              ) : ollamaModels.length === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-gray-400 mb-2">Ollama not available</p>
+                  <p className="text-xs text-gray-500">
+                    Install from{" "}
+                    <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="text-visor-accent underline hover:text-indigo-400">
+                      ollama.ai
+                    </a>{" "}
+                    and pull a model to get started.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1 mb-3">
+                  {ollamaModels.map((m) => (
+                    <button
+                      key={m.name}
+                      onClick={() => setSelectedModel(m.name)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                        selectedModel === m.name
+                          ? "bg-visor-accent/15 border border-visor-accent/30"
+                          : "hover:bg-visor-bg border border-transparent"
+                      }`}
+                    >
+                      <span className="shrink-0 w-7 h-7 flex items-center justify-center bg-purple-500/15 rounded text-[10px] font-bold text-purple-400 border border-purple-500/30">
+                        AI
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium truncate ${selectedModel === m.name ? "text-white" : "text-gray-300"}`}>
+                          {m.name}
+                        </p>
+                        <p className="text-[10px] text-gray-500 font-mono">
+                          {m.size ? `${(m.size / 1e9).toFixed(1)} GB` : ""}
+                        </p>
+                      </div>
+                      {selectedModel === m.name && (
+                        <svg className="w-4 h-4 text-visor-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="space-y-1">
-              {projects.map((p) => (
-                <button
-                  key={p.path}
-                  onClick={() => { setSelectedProject(p); setCustomCwd(""); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
-                    selectedProject?.path === p.path
-                      ? "bg-visor-accent/15 border border-visor-accent/30"
-                      : "hover:bg-visor-bg border border-transparent"
-                  }`}
-                >
-                  <span className="shrink-0 w-7 h-7 flex items-center justify-center bg-visor-bg rounded text-[10px] font-bold text-gray-400 border border-visor-border">
-                    {markerIcon(p.markers)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-medium truncate ${selectedProject?.path === p.path ? "text-white" : "text-gray-300"}`}>
-                      {p.name}
-                    </p>
-                    <p className="text-[10px] text-gray-500 font-mono truncate">{p.path}</p>
-                  </div>
-                  {p.markers.includes(".git") && (
-                    <span className="shrink-0 text-[10px] text-gray-500">git</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+            <>
+              <p className="text-xs text-gray-500 mt-3 mb-2 uppercase tracking-wider font-semibold">Select project</p>
 
-          {/* Custom directory input */}
-          <div className="mt-3 mb-3">
-            <p className="text-xs text-gray-500 mb-1.5 uppercase tracking-wider font-semibold">Or enter path</p>
-            <input
-              type="text"
-              value={customCwd}
-              onChange={(e) => { setCustomCwd(e.target.value); setSelectedProject(null); }}
-              placeholder="C:\path\to\project"
-              className="w-full px-3 py-2 bg-visor-bg border border-visor-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-visor-accent text-sm font-mono"
-            />
-          </div>
+              {projects.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">No projects found in ~/Projects</p>
+              ) : (
+                <div className="space-y-1">
+                  {projects.map((p) => (
+                    <button
+                      key={p.path}
+                      onClick={() => { setSelectedProject(p); setCustomCwd(""); }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                        selectedProject?.path === p.path
+                          ? "bg-visor-accent/15 border border-visor-accent/30"
+                          : "hover:bg-visor-bg border border-transparent"
+                      }`}
+                    >
+                      <span className="shrink-0 w-7 h-7 flex items-center justify-center bg-visor-bg rounded text-[10px] font-bold text-gray-400 border border-visor-border">
+                        {markerIcon(p.markers)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium truncate ${selectedProject?.path === p.path ? "text-white" : "text-gray-300"}`}>
+                          {p.name}
+                        </p>
+                        <p className="text-[10px] text-gray-500 font-mono truncate">{p.path}</p>
+                      </div>
+                      {p.markers.includes(".git") && (
+                        <span className="shrink-0 text-[10px] text-gray-500">git</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Custom directory input */}
+              <div className="mt-3 mb-3">
+                <p className="text-xs text-gray-500 mb-1.5 uppercase tracking-wider font-semibold">Or enter path</p>
+                <input
+                  type="text"
+                  value={customCwd}
+                  onChange={(e) => { setCustomCwd(e.target.value); setSelectedProject(null); }}
+                  placeholder="C:\path\to\project"
+                  className="w-full px-3 py-2 bg-visor-bg border border-visor-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-visor-accent text-sm font-mono"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-visor-border shrink-0">
           {error && <p className="text-visor-red text-sm mb-2">{error}</p>}
 
-          {cwd && (
-            <p className="text-xs text-gray-500 mb-3 truncate">
-              {agent.label} in <span className="text-gray-300 font-mono">{cwd}</span>
-            </p>
+          {isOllama ? (
+            selectedModel && (
+              <p className="text-xs text-gray-500 mb-3 truncate">
+                Ollama with <span className="text-purple-400 font-mono">{selectedModel}</span>
+              </p>
+            )
+          ) : (
+            cwd && (
+              <p className="text-xs text-gray-500 mb-3 truncate">
+                {agent.label} in <span className="text-gray-300 font-mono">{cwd}</span>
+              </p>
+            )
           )}
 
           <div className="flex gap-3">
@@ -176,7 +286,7 @@ export function CreateSessionModal({ open, onClose, onCreated }: Props) {
             </button>
             <button
               onClick={handleLaunch}
-              disabled={loading || !cwd}
+              disabled={loading || (isOllama ? !selectedModel : !cwd)}
               className="flex-1 py-2.5 bg-visor-accent hover:bg-indigo-600 disabled:opacity-30 text-white rounded-lg font-medium transition-colors text-sm"
             >
               {loading ? "Launching..." : "Launch"}

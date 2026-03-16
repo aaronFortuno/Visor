@@ -100,6 +100,81 @@ export async function controlSession(
   return data.session;
 }
 
+// ── Events ─────────────────────────────────────────────────
+
+export async function fetchEvents(
+  id: string,
+  opts?: { limit?: number; after?: number }
+): Promise<{ events: Array<{ id: number; sessionId: string; kind: string; data: string; timestamp: string }>; total: number }> {
+  const params = new URLSearchParams();
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  if (opts?.after) params.set("after", String(opts.after));
+  const res = handleResponse(await fetch(`/api/sessions/${id}/events?${params}`, { headers: headers() }));
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+export async function renameSession(id: string, name: string): Promise<Session> {
+  const res = handleResponse(await fetch(`/api/sessions/${id}`, {
+    method: "PATCH",
+    headers: headers(),
+    body: JSON.stringify({ name }),
+  }));
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.session;
+}
+
+// ── Ollama ─────────────────────────────────────────────────
+
+export async function fetchOllamaModels(): Promise<Array<{ name: string; size: number }>> {
+  try {
+    const res = handleResponse(await fetch("/api/ollama/models", { headers: headers() }));
+    if (!res.ok) return []; // Ollama may not be running
+    const data = await res.json();
+    return data.models || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function ollamaChat(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  onChunk: (text: string) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  const res = await fetch("/api/ollama/chat", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ model, messages, stream: true }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error("Ollama request failed");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const json = JSON.parse(line);
+        if (json.message?.content) onChunk(json.message.content);
+      } catch { /* skip malformed lines */ }
+    }
+  }
+}
+
 // ── Server info ────────────────────────────────────────────
 
 export async function fetchServerInfo(): Promise<{

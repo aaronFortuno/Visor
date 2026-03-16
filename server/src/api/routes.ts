@@ -5,7 +5,9 @@ import { homedir } from "node:os";
 import {
   createAndStartSession, createSession, startSession, stopSession,
   removeSession, sendInput, resizeSession, getSession, listSessions, restartSession,
+  renameSession,
 } from "../core/session-manager.ts";
+import { getEvents, getEventCount } from "../db/database.ts";
 import type { CreateSessionOpts, SessionType } from "../core/types.ts";
 
 // ── Cached health config (computed once at module load) ────
@@ -41,6 +43,21 @@ api.post("/sessions", async (c) => {
     const session = autoStart ? createAndStartSession(opts) : createSession(opts);
     return c.json({ session }, 201);
   } catch (err: any) { return c.json({ error: err.message }, 400); }
+});
+
+api.patch("/sessions/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{ name?: string }>();
+  if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
+    return c.json({ error: "name is required and must be a non-empty string" }, 400);
+  }
+  try {
+    const session = renameSession(id, body.name.trim());
+    if (!session) return c.json({ error: "Session not found" }, 404);
+    return c.json({ session });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 400);
+  }
 });
 
 api.delete("/sessions/:id", (c) => {
@@ -82,6 +99,21 @@ api.post("/sessions/:id/resize", async (c) => {
   }
   try { resizeSession(c.req.param("id"), body.cols, body.rows); return c.json({ ok: true }); }
   catch (err: any) { return c.json({ error: err.message }, 400); }
+});
+
+api.get("/sessions/:id/events", (c) => {
+  const id = c.req.param("id");
+  const url = new URL(c.req.url);
+  const limit = parseInt(url.searchParams.get("limit") || "200");
+  const after = parseInt(url.searchParams.get("after") || "0");
+
+  try {
+    const events = getEvents(id, { limit, after });
+    const total = getEventCount(id);
+    return c.json({ events, total });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 400);
+  }
 });
 
 api.get("/health", (c) => {
