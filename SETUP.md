@@ -129,6 +129,43 @@ With Cloudflare Tunnel + token auth, you have two layers of security.
 
 ---
 
+## Install as PWA (Mobile App)
+
+Visor can be installed as a Progressive Web App on your phone for a native-like experience: standalone mode (no browser chrome), home screen icon, and cached app shell for fast loading.
+
+### iOS (Safari)
+
+1. Open Visor in **Safari** (PWA install only works in Safari on iOS)
+2. Tap the **Share** button (square with upward arrow) at the bottom
+3. Scroll down and tap **"Add to Home Screen"**
+4. Give it a name (default: "Visor") and tap **"Add"**
+5. Visor now appears on your home screen as a standalone app
+
+### Android (Chrome)
+
+1. Open Visor in **Chrome**
+2. Tap the **three-dot menu** at the top right
+3. Tap **"Install app"** or **"Add to Home Screen"**
+4. Confirm the installation
+5. Visor now appears in your app drawer and home screen
+
+### Desktop (Chrome / Edge)
+
+1. Open Visor in Chrome or Edge
+2. Click the **install icon** in the address bar (or three-dot menu → "Install Visor")
+3. Confirm
+
+### What PWA gives you
+
+- **Standalone mode**: No browser address bar or navigation — full screen for Visor
+- **Home screen icon**: Launch Visor like a native app
+- **Cached shell**: The app shell (HTML, CSS, JS) is cached by the service worker, so loading is fast even on slow connections
+- **Offline fallback**: If the server is unreachable, you see the cached app instead of a browser error page
+
+**Note**: The PWA still requires a network connection to interact with sessions — the service worker only caches the app shell, not the real-time terminal data.
+
+---
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -148,3 +185,40 @@ Click the bell icon in the dashboard to enable. Works on mobile browsers too.
 **Note**: Notifications require the page to be open (but not focused).
 For background notifications when the browser is closed, you'd need
 HTTPS + service worker (available with Cloudflare Tunnel setup).
+
+## Using the Web UI
+
+### Dashboard
+
+The dashboard shows all sessions as cards in a responsive grid. Each card shows:
+- Session name and agent type (claude-code, opencode, shell)
+- Status indicator (running, stopped, error)
+- Time since creation
+
+Tap **"+ New Session"** to create a new session. The modal lets you:
+- Pick an agent type (Claude Code, opencode, or custom shell)
+- Select a project directory from auto-discovered folders
+- Or enter a custom path
+
+### Session View
+
+When you tap a session, you enter the session view with two modes:
+
+**Terminal mode** (default on desktop):
+- Full xterm.js terminal with bidirectional I/O
+- On desktop: floating scroll control buttons on the right
+- On mobile: a toolbar at the bottom with navigation keys (Tab, Esc, arrows), control keys (Ctrl+C/D/Z/L, Enter, y, n), slash command panel, text input with history, and context action buttons
+
+**Chat mode** (default on mobile):
+- Agent output rendered as message bubbles with markdown formatting
+- Code blocks with syntax highlighting
+- Quick action buttons: Ctrl+C, y, n, Enter
+- Slash command popup (type `/` to open)
+- Text input with send button, optimized for mobile keyboards
+- Input history (arrow up/down on desktop, stored in localStorage)
+
+The header bar contains:
+- Back button (return to dashboard)
+- Session name, type badge, and status
+- **View toggle** — switch between Terminal and Chat mode
+- Session controls: Restart, Stop/Start, Delete

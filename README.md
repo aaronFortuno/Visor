@@ -9,6 +9,7 @@ Remote agent session manager. Monitor and interact with AI coding agents (Claude
 - **Interact remotely** — see the full terminal output, type commands, answer questions
 - **Manage multiple sessions** — create, stop, restart, delete from anywhere
 - **Get notified** — browser notifications when an agent asks a question
+- **Install as app** — PWA support, add to home screen on mobile for a native feel
 
 ## Architecture
 
@@ -20,7 +21,9 @@ Your PC (Visor server)
 
 Browser (phone/tablet/PC)
 ├── Dashboard → list/create/manage sessions
-└── xterm.js terminal → full bidirectional terminal access
+├── Terminal view → full bidirectional xterm.js terminal
+├── Chat view → clean message bubbles with markdown rendering
+└── PWA → installable, offline shell, standalone mode
 
 CLI (visor command)
 ├── Interactive session picker
@@ -46,6 +49,40 @@ npm start
 ```
 
 The server starts on `http://0.0.0.0:3100`. Open it in your browser and paste your token.
+
+## Mobile Experience
+
+Visor is designed mobile-first. On your phone:
+
+1. **Open** `http://<your-pc-ip>:3100` in your mobile browser
+2. **Login** with your token (long-press to paste)
+3. **Add to Home Screen** — the app installs as a PWA with standalone mode (no browser chrome)
+4. **Browse sessions** on the dashboard, tap one to open
+
+### Two View Modes
+
+Each session has a toggle in the header to switch between:
+
+- **Chat view** (default on mobile) — Clean message bubbles with markdown rendering, quick action buttons (Ctrl+C, y, n, Enter), slash commands, and a text input bar. Best for reading agent output and sending prompts.
+- **Terminal view** — Full xterm.js terminal with a mobile toolbar at the bottom: navigation keys (Tab, Esc, arrows), control keys (Ctrl+C/D/Z/L), slash command panel, text input with history, and context actions (Compact, Cost, Clear, Cancel).
+
+### Install as PWA
+
+For the best mobile experience, install Visor as a Progressive Web App:
+
+**iOS (Safari)**:
+1. Open Visor in Safari
+2. Tap the Share button (square with arrow)
+3. Scroll down, tap "Add to Home Screen"
+4. Tap "Add"
+
+**Android (Chrome)**:
+1. Open Visor in Chrome
+2. Tap the three-dot menu
+3. Tap "Install app" or "Add to Home Screen"
+4. Confirm
+
+Once installed, Visor opens in standalone mode (no browser address bar) and the service worker caches the app shell for faster loading.
 
 ## CLI Usage
 
@@ -108,7 +145,8 @@ visor/
 │   │   ├── config.ts     # Environment configuration
 │   │   ├── emitter.ts    # Internal event bus
 │   │   ├── pty-manager.ts # PTY process management (node-pty)
-│   │   ├── session-manager.ts # Session CRUD
+│   │   ├── session-manager.ts # Session CRUD & lifecycle
+│   │   ├── screen-buffer.ts   # Virtual terminal ANSI parser
 │   │   └── types.ts      # Shared types
 │   ├── api/
 │   │   ├── auth.ts       # Bearer token auth middleware
@@ -119,19 +157,28 @@ visor/
 │       └── handler.ts    # WebSocket handler
 │
 ├── web/src/              # Frontend (React + Tailwind + Vite)
-│   ├── App.tsx           # Main app
+│   ├── App.tsx           # Main app with routing
+│   ├── main.tsx          # Entry point + SW registration
 │   ├── components/
-│   │   ├── Dashboard.tsx          # Session list
-│   │   ├── SessionView.tsx        # Terminal view (xterm.js)
+│   │   ├── Dashboard.tsx          # Session grid
+│   │   ├── SessionView.tsx        # Terminal + Chat with mode toggle
+│   │   ├── ChatView.tsx           # Chat-style message view
+│   │   ├── MobileToolbar.tsx      # Mobile key toolbar + panels
+│   │   ├── MarkdownMessage.tsx    # Markdown renderer
 │   │   ├── CreateSessionModal.tsx # Project picker + agent selector
 │   │   ├── LoginScreen.tsx        # Token auth
 │   │   ├── SessionCard.tsx        # Session card
 │   │   └── StatusBadge.tsx        # Status/type badges
 │   ├── hooks/
-│   │   └── useWebSocket.ts  # WebSocket connection
-│   └── lib/
-│       ├── api.ts           # REST client
-│       └── types.ts         # Shared types
+│   │   └── useWebSocket.ts  # WebSocket connection + notifications
+│   ├── lib/
+│   │   ├── api.ts           # REST client
+│   │   ├── pty-parser.ts    # ANSI cleanup for chat view
+│   │   └── types.ts         # Shared types
+│   └── public/
+│       ├── manifest.json    # PWA manifest
+│       ├── sw.js            # Service worker
+│       └── favicon.svg      # App icon
 │
 ├── cli/src/
 │   └── index.ts          # CLI tool
@@ -151,7 +198,8 @@ visor/
 ## Known Limitations
 
 - **PTY resize conflict**: When multiple devices view the same session, each resize affects all viewers. The last device to connect "wins" the terminal size.
-- **TUI scroll on mobile**: Full-screen TUI apps (opencode, claude) don't generate traditional scrollback. Use the Page Up/Down buttons on the right side to scroll within the TUI.
+- **TUI scroll on mobile**: Full-screen TUI apps (opencode, claude) don't generate traditional scrollback. In terminal mode, use the Page Up/Down keys on the mobile toolbar.
+- **Chat view parsing**: The chat view strips ANSI codes and TUI chrome from raw terminal output. Complex TUI redraws may occasionally produce duplicate or garbled text — switch to terminal mode for full fidelity.
 
 ## License
 

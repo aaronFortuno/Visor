@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { SessionType } from "../lib/types";
 import { MarkdownMessage } from "./MarkdownMessage";
+import { OutputAccumulator } from "../lib/pty-parser";
 
 interface Props {
   sessionId: string;
   sessionType: SessionType;
   onSend: (data: string) => void;
   onOutput: (handler: (sid: string, kind: string, data: string) => void) => () => void;
-  onBack: () => void;
 }
 
 // ── Slash commands per agent type ──────────────────────────
@@ -42,7 +42,7 @@ const SLASH_COMMANDS: Record<string, SlashCommand[]> = {
 
 // ── Component ──────────────────────────────────────────────
 
-export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: Props) {
+export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
   const [lines, setLines] = useState<Array<{ text: string; kind: "output" | "input" | "system"; ts: number }>>([]);
   const [inputText, setInputText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
@@ -54,6 +54,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: P
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const accumulatorRef = useRef(new OutputAccumulator());
 
   const slashCommands = SLASH_COMMANDS[sessionType] || [];
   const filteredSlash = slashFilter
@@ -67,27 +68,36 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: P
     });
   }, []);
 
-  // Subscribe to output — server sends clean "chat" blocks, already deduplicated.
+  // Subscribe to raw output — use OutputAccumulator to clean ANSI and deduplicate.
   // Merge consecutive output blocks into a single message to avoid many small bubbles.
   useEffect(() => {
+    const accumulator = accumulatorRef.current;
+    accumulator.clear();
+
     const unsub = onOutput((sid, kind, data) => {
       if (sid !== sessionId) return;
-      if (kind !== "chat") return;
+      if (kind !== "stdout" && kind !== "stderr") return;
+
+      // Parse raw PTY output through accumulator
+      const cleanLines = accumulator.push(data);
+      if (cleanLines.length === 0) return;
+
+      const cleanText = cleanLines.join("\n");
 
       setLines((prev) => {
         const last = prev[prev.length - 1];
-        // If the last message is also output and recent (<2s), append to it
-        if (last && last.kind === "output" && Date.now() - last.ts < 2000) {
+        // If the last message is also output and recent (<3s), append to it
+        if (last && last.kind === "output" && Date.now() - last.ts < 3000) {
           const updated = [...prev];
           updated[updated.length - 1] = {
             ...last,
-            text: last.text + "\n" + data,
+            text: last.text + "\n" + cleanText,
             ts: Date.now(),
           };
           return updated;
         }
         // Otherwise create a new message
-        return [...prev, { text: data, kind: "output" as const, ts: Date.now() }];
+        return [...prev, { text: cleanText, kind: "output" as const, ts: Date.now() }];
       });
       scrollToBottom();
     });
@@ -122,17 +132,11 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: P
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Enter to send — works on desktop.
-    // For mobile keyboards that don't fire "Enter" key, we also
-    // handle it via a wrapping <form> onSubmit.
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-    if (e.key === "Enter" && e.nativeEvent.isComposing) {
-      // IME composing (some mobile keyboards), ignore
-      return;
-    }
+    if (e.key === "Enter" && e.nativeEvent.isComposing) return;
     if (e.key === "ArrowUp" && !inputText) {
       e.preventDefault();
       const next = Math.min(historyIdx + 1, inputHistory.length - 1);
@@ -191,7 +195,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: P
   return (
     <div className="flex flex-col h-full">
       {/* ── Message area ──────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {lines.length === 0 && (
           <div className="flex items-center justify-center h-full text-gray-500 text-sm">
             Waiting for output...
@@ -210,7 +214,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: P
                 {line.text}
               </div>
             ) : (
-              <div className="max-w-[95%] rounded-lg px-4 py-3 bg-visor-card border border-visor-border">
+              <div className="max-w-[95%] rounded-lg px-3 py-2.5 bg-visor-card border border-visor-border">
                 <MarkdownMessage content={line.text} />
               </div>
             )}
@@ -246,7 +250,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: P
           <button
             key={action.label}
             onClick={() => onSend(action.value)}
-            className="shrink-0 px-2.5 py-1 bg-visor-bg border border-visor-border rounded text-xs text-gray-400 hover:text-white active:bg-visor-accent/20 transition-colors font-mono"
+            className="shrink-0 px-2.5 py-1.5 bg-visor-bg border border-visor-border rounded text-xs text-gray-400 hover:text-white active:bg-visor-accent/20 transition-colors font-mono"
           >
             {action.label}
           </button>
@@ -262,22 +266,12 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: P
             /
           </button>
         )}
-
-        <div className="flex-1" />
-
-        {/* Swipe hint on mobile */}
-        <button
-          onClick={onBack}
-          className="shrink-0 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-        >
-          Back
-        </button>
       </div>
 
       {/* ── Input bar ─────────────────────────────────────── */}
       <form
         onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-        className="flex items-end gap-2 px-3 py-3 border-t border-visor-border bg-visor-card safe-bottom"
+        className="flex items-end gap-2 px-3 py-2.5 border-t border-visor-border bg-visor-card safe-bottom"
       >
         <textarea
           ref={inputRef}
@@ -287,9 +281,8 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput, onBack }: P
           enterKeyHint="send"
           placeholder="Type a message or /command..."
           rows={1}
-          className="flex-1 px-4 py-2.5 bg-visor-bg border border-visor-border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-visor-accent text-sm resize-none max-h-32 overflow-y-auto"
+          className="flex-1 px-3 py-2.5 bg-visor-bg border border-visor-border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-visor-accent text-sm resize-none max-h-32 overflow-y-auto"
           style={{ minHeight: "42px" }}
-          autoFocus
         />
         <button
           type="submit"
