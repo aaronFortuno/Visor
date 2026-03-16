@@ -1,7 +1,8 @@
 import { Hono } from "hono";
-import { readdirSync, existsSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
+import { readdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { homedir } from "node:os";
+import { loadConfig } from "../core/config.ts";
 import {
   createAndStartSession, createSession, startSession, stopSession,
   removeSession, sendInput, resizeSession, getSession, listSessions, restartSession,
@@ -58,7 +59,16 @@ api.post("/sessions/:id/resize", async (c) => {
   catch (err: any) { return c.json({ error: err.message }, 400); }
 });
 
-api.get("/health", (c) => c.json({ status: "ok", uptime: process.uptime(), sessions: listSessions().length }));
+api.get("/health", (c) => {
+  const config = loadConfig();
+  return c.json({
+    status: "ok",
+    uptime: process.uptime(),
+    sessions: listSessions().length,
+    platform: process.platform,
+    defaultShell: config.defaultShell,
+  });
+});
 
 // ── Projects discovery ─────────────────────────────────────
 

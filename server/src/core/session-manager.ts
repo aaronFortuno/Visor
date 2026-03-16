@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { homedir } from "node:os";
 import { bus } from "./emitter.ts";
-import { spawnPty, writeToPty, resizePty, killPty, isPtyActive, getPtyPid } from "./pty-manager.ts";
+import { spawnPty, writeToPty, resizePty, killPty, isPtyActive } from "./pty-manager.ts";
 import {
   insertSession, getSessionById, getAllSessions, updateSession, deleteSession,
 } from "../db/database.ts";

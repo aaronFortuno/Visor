@@ -120,7 +120,7 @@ bus.on("session:update", ({ session }) => {
 bus.on("session:output", ({ sessionId, kind, data }) => {
   if (kind === "question") {
     for (const [ws] of clients) {
-      send(ws, { type: "question", sessionId, data, timestamp: new Date().toISOString() } as any);
+      send(ws, { type: "question", sessionId, data, timestamp: new Date().toISOString() });
     }
   }
 });

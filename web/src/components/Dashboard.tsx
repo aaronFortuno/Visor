@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Session } from "../lib/types";
-import { fetchSessions } from "../lib/api";
+import { fetchSessions, clearToken } from "../lib/api";
 import { SessionCard } from "./SessionCard";
 import { CreateSessionModal } from "./CreateSessionModal";
 
@@ -23,7 +23,8 @@ export function Dashboard({ sessions, onSelectSession, connected }: Props) {
   }, [sessions]);
 
   const running = localSessions.filter((s) => s.status === "running");
-  const stopped = localSessions.filter((s) => s.status !== "running");
+  const errored = localSessions.filter((s) => s.status === "error");
+  const stopped = localSessions.filter((s) => s.status !== "running" && s.status !== "error");
 
   return (
     <div className="flex flex-col h-full">
@@ -37,18 +38,31 @@ export function Dashboard({ sessions, onSelectSession, connected }: Props) {
           </span>
         </div>
 
-        {/* Notifications toggle */}
-        {typeof Notification !== "undefined" && Notification.permission !== "granted" && (
+        <div className="flex items-center gap-1">
+          {/* Notifications toggle */}
+          {typeof Notification !== "undefined" && Notification.permission !== "granted" && (
+            <button
+              onClick={() => Notification.requestPermission()}
+              className="p-2 text-gray-500 hover:text-visor-accent transition-colors rounded-lg"
+              title="Enable notifications"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+            </button>
+          )}
+
+          {/* Logout */}
           <button
-            onClick={() => Notification.requestPermission()}
-            className="p-2 text-gray-500 hover:text-visor-accent transition-colors rounded-lg"
-            title="Enable notifications"
+            onClick={clearToken}
+            className="p-2 text-gray-500 hover:text-visor-red transition-colors rounded-lg"
+            title="Logout"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
             </svg>
           </button>
-        )}
+        </div>
 
         <button
           onClick={() => setShowCreate(true)}
@@ -80,6 +94,19 @@ export function Dashboard({ sessions, onSelectSession, connected }: Props) {
                 </h2>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {running.map((s) => (
+                    <SessionCard key={s.id} session={s} onClick={() => onSelectSession(s)} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {errored.length > 0 && (
+              <section>
+                <h2 className="text-xs font-semibold text-visor-red uppercase tracking-wider mb-3">
+                  Error ({errored.length})
+                </h2>
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {errored.map((s) => (
                     <SessionCard key={s.id} session={s} onClick={() => onSelectSession(s)} />
                   ))}
                 </div>

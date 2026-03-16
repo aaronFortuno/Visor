@@ -24,6 +24,7 @@ interface Props {
 export function SessionView({
   session, onBack, wsSubscribe, wsUnsubscribe, wsSendInput, wsResize, onOutput,
 }: Props) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     // Default to chat on mobile, terminal on desktop
     if (typeof window !== "undefined" && window.innerWidth < 768) return "chat";
@@ -184,7 +185,8 @@ export function SessionView({
   };
 
   const handleDelete = async () => {
-    if (confirm("Delete session?")) { await apiDeleteSession(session.id); onBack(); }
+    try { await apiDeleteSession(session.id); onBack(); }
+    catch (e: any) { console.error(e.message); }
   };
 
   const handleSendInput = useCallback(
@@ -257,7 +259,7 @@ export function SessionView({
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </button>
           )}
-          <button onClick={handleDelete} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-red rounded-lg" title="Delete">
+          <button onClick={() => setShowDeleteConfirm(true)} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-red rounded-lg" title="Delete">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>
         </div>
@@ -301,6 +303,30 @@ export function SessionView({
           onSend={handleSendInput}
           onOutput={onOutput}
         />
+      )}
+
+      {/* ── Delete confirmation dialog ─────────────────────── */}
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="bg-visor-card border border-visor-border rounded-xl p-5 mx-4 max-w-sm w-full animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-semibold mb-2">Delete session?</h3>
+            <p className="text-gray-400 text-sm mb-4">This will permanently delete "{session.name}" and all its history.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 border border-visor-border rounded-lg text-gray-400 hover:text-white transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowDeleteConfirm(false); handleDelete(); }}
+                className="flex-1 py-2.5 bg-visor-red/90 hover:bg-red-600 text-white rounded-lg font-medium transition-colors text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

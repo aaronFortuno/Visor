@@ -47,7 +47,7 @@ export function spawnPty(session: Session): pty.IPty {
       if (pattern.test(questionBuffer.slice(-200))) {
         bus.emit("session:output", {
           sessionId: session.id,
-          kind: "question" as any,
+          kind: "question",
           data: questionBuffer.slice(-200).trim(),
         });
         questionBuffer = "";

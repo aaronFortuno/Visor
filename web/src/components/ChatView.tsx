@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { SessionType } from "../lib/types";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { OutputAccumulator } from "../lib/pty-parser";
+import { getSlashCommands, type SlashCommand } from "../lib/commands";
 
 interface Props {
   sessionId: string;
@@ -9,36 +10,6 @@ interface Props {
   onSend: (data: string) => void;
   onOutput: (handler: (sid: string, kind: string, data: string) => void) => () => void;
 }
-
-// ── Slash commands per agent type ──────────────────────────
-
-interface SlashCommand {
-  command: string;
-  description: string;
-}
-
-const SLASH_COMMANDS: Record<string, SlashCommand[]> = {
-  "claude-code": [
-    { command: "/help", description: "Show help" },
-    { command: "/clear", description: "Clear conversation" },
-    { command: "/compact", description: "Compact context" },
-    { command: "/model", description: "Switch model" },
-    { command: "/cost", description: "Token usage & cost" },
-    { command: "/config", description: "View config" },
-    { command: "/doctor", description: "Run diagnostics" },
-  ],
-  opencode: [
-    { command: "/help", description: "Show help" },
-    { command: "/clear", description: "Clear conversation" },
-    { command: "/compact", description: "Compact context" },
-    { command: "/model", description: "Switch model" },
-    { command: "/cost", description: "Token usage & cost" },
-    { command: "/diff", description: "Show pending diffs" },
-    { command: "/undo", description: "Undo last change" },
-  ],
-  ollama: [],
-  custom: [],
-};
 
 // ── Component ──────────────────────────────────────────────
 
@@ -56,7 +27,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const accumulatorRef = useRef(new OutputAccumulator());
 
-  const slashCommands = SLASH_COMMANDS[sessionType] || [];
+  const slashCommands = getSlashCommands(sessionType);
   const filteredSlash = slashFilter
     ? slashCommands.filter((c) => c.command.includes(slashFilter.toLowerCase()))
     : slashCommands;

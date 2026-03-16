@@ -76,11 +76,6 @@ export function saveDatabase(): void {
   }
 }
 
-export function getDb(): SqlJsDatabase {
-  if (!db) throw new Error("Database not initialized");
-  return db;
-}
-
 // ── Helper to run queries ──────────────────────────────────
 
 function queryAll(sql: string, params: any[] = []): any[] {
@@ -177,12 +172,35 @@ export function deleteSession(id: string): boolean {
 
 // ── Event queries ──────────────────────────────────────────
 
+const MAX_EVENTS_PER_SESSION = 5000;
+let pruneCounter = 0;
+
 export function insertEvent(sessionId: string, kind: EventKind, data: string): void {
   // Don't save on every event — the interval handles persistence
   db.run(
     "INSERT INTO events (session_id, kind, data) VALUES (?, ?, ?)",
     [sessionId, kind, data]
   );
+
+  // Prune old events periodically (every ~100 inserts) to prevent unbounded growth
+  pruneCounter++;
+  if (pruneCounter >= 100) {
+    pruneCounter = 0;
+    pruneEvents(sessionId, MAX_EVENTS_PER_SESSION);
+  }
+}
+
+function pruneEvents(sessionId: string, maxEvents: number): void {
+  try {
+    const row = queryOne("SELECT COUNT(*) as count FROM events WHERE session_id = ?", [sessionId]);
+    if (row && row.count > maxEvents) {
+      const excess = row.count - maxEvents;
+      db.run(
+        "DELETE FROM events WHERE id IN (SELECT id FROM events WHERE session_id = ? ORDER BY id ASC LIMIT ?)",
+        [sessionId, excess]
+      );
+    }
+  } catch { /* ignore pruning errors */ }
 }
 
 export function getEvents(sessionId: string, opts?: { limit?: number; after?: number }): SessionEvent[] {

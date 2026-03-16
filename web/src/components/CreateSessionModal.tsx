@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createSession } from "../lib/api";
+import { createSession, fetchServerInfo } from "../lib/api";
 import type { Session } from "../lib/types";
 
 interface Props {
@@ -14,21 +14,24 @@ interface Project {
   markers: string[];
 }
 
-const AGENTS = [
-  { label: "opencode", type: "opencode", command: "opencode" },
-  { label: "Claude Code", type: "claude-code", command: "claude" },
-  { label: "Shell", type: "custom", command: "powershell.exe" },
-];
+function getAgents(defaultShell: string) {
+  return [
+    { label: "opencode", type: "opencode", command: "opencode" },
+    { label: "Claude Code", type: "claude-code", command: "claude" },
+    { label: "Shell", type: "custom", command: defaultShell },
+  ];
+}
 
 export function CreateSessionModal({ open, onClose, onCreated }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [agents, setAgents] = useState(getAgents("powershell.exe"));
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedAgent, setSelectedAgent] = useState(0);
   const [customCwd, setCustomCwd] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch projects on open
+  // Fetch projects and server info on open
   useEffect(() => {
     if (!open) return;
     fetch("/api/projects", {
@@ -37,11 +40,15 @@ export function CreateSessionModal({ open, onClose, onCreated }: Props) {
       .then((r) => r.json())
       .then((d) => setProjects(d.projects || []))
       .catch(() => {});
+
+    fetchServerInfo()
+      .then((info) => setAgents(getAgents(info.defaultShell)))
+      .catch(() => {});
   }, [open]);
 
   if (!open) return null;
 
-  const agent = AGENTS[selectedAgent];
+  const agent = agents[selectedAgent];
   const cwd = selectedProject?.path || customCwd;
 
   const handleLaunch = async () => {
@@ -89,7 +96,7 @@ export function CreateSessionModal({ open, onClose, onCreated }: Props) {
 
           {/* Agent selector */}
           <div className="flex gap-2 mb-4">
-            {AGENTS.map((a, i) => (
+            {agents.map((a, i) => (
               <button
                 key={a.label}
                 onClick={() => setSelectedAgent(i)}
