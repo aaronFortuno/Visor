@@ -4,10 +4,12 @@ import { getToken } from "../lib/api";
 
 type OutputHandler = (sessionId: string, kind: EventKind, data: string) => void;
 
+type SubscribeMode = "raw" | "chat";
+
 interface UseWebSocketReturn {
   connected: boolean;
   sessions: Session[];
-  subscribe: (sessionId: string) => void;
+  subscribe: (sessionId: string, mode?: SubscribeMode) => void;
   unsubscribe: (sessionId: string) => void;
   sendInput: (sessionId: string, data: string) => void;
   resize: (sessionId: string, cols: number, rows: number) => void;
@@ -84,7 +86,7 @@ export function useWebSocket(): UseWebSocketReturn {
   return {
     connected,
     sessions,
-    subscribe: useCallback((id: string) => send({ type: "subscribe", sessionId: id }), [send]),
+    subscribe: useCallback((id: string, mode?: SubscribeMode) => send({ type: "subscribe", sessionId: id, mode: mode || "raw" }), [send]),
     unsubscribe: useCallback((id: string) => send({ type: "unsubscribe", sessionId: id }), [send]),
     sendInput: useCallback((id: string, data: string) => send({ type: "input", sessionId: id, data }), [send]),
     resize: useCallback((id: string, cols: number, rows: number) => send({ type: "resize", sessionId: id, cols, rows }), [send]),

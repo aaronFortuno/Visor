@@ -353,7 +353,7 @@ async function resolveSessionId(input: string): Promise<string> {
 
 async function cmdInteractive() {
   const sessions = await cmdList();
-  const hasSessiones = sessions && sessions.length > 0;
+  const hasSessions = sessions && sessions.length > 0;
 
   console.log("  \x1b[33m0\x1b[0m  New session...");
   console.log("");
@@ -363,7 +363,7 @@ async function cmdInteractive() {
     output: process.stdout,
   });
 
-  const prompt = hasSessiones
+  const prompt = hasSessions
     ? "  Enter # to attach, 0 for new (q to quit): "
     : "  Press 0 for new session (q to quit): ";
 

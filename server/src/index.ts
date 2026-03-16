@@ -11,6 +11,7 @@ import { loadConfig } from "./core/config.ts";
 import { initDatabase, saveDatabase } from "./db/database.ts";
 import { authMiddleware } from "./api/auth.ts";
 import { api } from "./api/routes.ts";
+import { ollamaRouter } from "./agents/ollama.ts";
 import { handleWsOpen, handleWsMessage, handleWsClose } from "./ws/handler.ts";
 import { restoreSuspendedSessions, suspendAllSessions, watchdogCheck } from "./core/session-manager.ts";
 
@@ -49,6 +50,17 @@ async function main() {
   // ── Routes ───────────────────────────────────────────────
 
   app.route("/api", api);
+  app.route("/api/ollama", ollamaRouter);
+
+  // ── WebSocket with token validation ─────────────────────
+
+  app.get("/ws", (c, next) => {
+    const token = new URL(c.req.url).searchParams.get("token");
+    if (token !== config.authToken) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    return next();
+  });
 
   app.get(
     "/ws",

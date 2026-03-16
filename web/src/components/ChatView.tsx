@@ -68,22 +68,13 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
     });
   }, []);
 
-  // Subscribe to raw output — use OutputAccumulator to clean ANSI and deduplicate.
-  // Merge consecutive output blocks into a single message to avoid many small bubbles.
+  // Subscribe to output — supports both server-side "chat" mode (pre-cleaned)
+  // and client-side fallback with OutputAccumulator for raw stdout/stderr.
   useEffect(() => {
     const accumulator = accumulatorRef.current;
     accumulator.clear();
 
-    const unsub = onOutput((sid, kind, data) => {
-      if (sid !== sessionId) return;
-      if (kind !== "stdout" && kind !== "stderr") return;
-
-      // Parse raw PTY output through accumulator
-      const cleanLines = accumulator.push(data);
-      if (cleanLines.length === 0) return;
-
-      const cleanText = cleanLines.join("\n");
-
+    const appendOutput = (cleanText: string) => {
       setLines((prev) => {
         const last = prev[prev.length - 1];
         // If the last message is also output and recent (<3s), append to it
@@ -96,10 +87,25 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
           };
           return updated;
         }
-        // Otherwise create a new message
         return [...prev, { text: cleanText, kind: "output" as const, ts: Date.now() }];
       });
       scrollToBottom();
+    };
+
+    const unsub = onOutput((sid, kind, data) => {
+      if (sid !== sessionId) return;
+
+      // Server-side chat mode: already cleaned by ScreenBuffer
+      if (kind === "chat") {
+        appendOutput(data);
+        return;
+      }
+
+      // Client-side fallback: clean raw PTY output
+      if (kind !== "stdout" && kind !== "stderr") return;
+      const cleanLines = accumulator.push(data);
+      if (cleanLines.length === 0) return;
+      appendOutput(cleanLines.join("\n"));
     });
 
     return unsub;

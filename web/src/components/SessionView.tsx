@@ -14,7 +14,7 @@ type ViewMode = "terminal" | "chat";
 interface Props {
   session: Session;
   onBack: () => void;
-  wsSubscribe: (sessionId: string) => void;
+  wsSubscribe: (sessionId: string, mode?: "raw" | "chat") => void;
   wsUnsubscribe: (sessionId: string) => void;
   wsSendInput: (sessionId: string, data: string) => void;
   wsResize: (sessionId: string, cols: number, rows: number) => void;
@@ -79,9 +79,6 @@ export function SessionView({
 
     requestAnimationFrame(() => {
       fit.fit();
-      if (!termInitialized.current) {
-        wsSubscribe(session.id);
-      }
       wsResize(session.id, term.cols, term.rows);
     });
 
@@ -140,7 +137,7 @@ export function SessionView({
     };
   }, [viewMode, session.id]); // eslint-disable-line
 
-  // ── Output routing: terminal always receives output ──────
+  // ── Output routing: terminal always receives raw output ──
   useEffect(() => {
     const unsub = onOutput((sid, kind, data) => {
       if (sid === session.id && (kind === "stdout" || kind === "stderr")) {
@@ -150,19 +147,27 @@ export function SessionView({
     return unsub;
   }, [session.id, onOutput]);
 
-  // Subscribe/unsubscribe on mount/unmount
+  // ── Subscribe/unsubscribe — re-subscribe on mode change ─
   useEffect(() => {
-    // If starting in chat mode, we still need to subscribe
-    if (viewMode === "chat" && !termInitialized.current) {
-      wsSubscribe(session.id);
-    }
+    // Subscribe with the appropriate mode: raw for terminal keeps the
+    // xterm buffer in sync; chat gives the ChatView pre-cleaned text.
+    // Raw mode output is also used by ChatView's client-side fallback,
+    // so raw works for both — but "chat" mode gives cleaner results.
+    wsSubscribe(session.id, viewMode === "chat" ? "chat" : "raw");
+
     return () => {
       wsUnsubscribe(session.id);
+    };
+  }, [session.id, viewMode]); // eslint-disable-line
+
+  // ── Cleanup terminal on unmount ─────────────────────────
+  useEffect(() => {
+    return () => {
       termRef.current?.dispose();
       termRef.current = null;
       termInitialized.current = false;
     };
-  }, [session.id]); // eslint-disable-line
+  }, [session.id]);
 
   // ── Scroll controls for terminal mode ───────────────────
 
