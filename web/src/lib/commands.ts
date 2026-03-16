@@ -9,7 +9,7 @@ export interface SlashCommand {
   direct?: boolean;
 }
 
-export const SLASH_COMMANDS: Record<string, SlashCommand[]> = {
+const SLASH_COMMANDS: Record<string, SlashCommand[]> = {
   "claude-code": [
     { command: "/help", description: "Show help", direct: true },
     { command: "/clear", description: "Clear conversation", direct: true },
@@ -49,7 +49,7 @@ export interface ContextAction {
   color: string;
 }
 
-export const CONTEXT_ACTIONS: Record<string, ContextAction[]> = {
+const CONTEXT_ACTIONS: Record<string, ContextAction[]> = {
   "claude-code": [
     { label: "Compact", icon: "compress", action: "/compact\r", color: "text-blue-400" },
     { label: "Cost", icon: "dollar", action: "/cost\r", color: "text-green-400" },

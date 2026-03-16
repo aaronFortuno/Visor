@@ -1,8 +1,22 @@
-import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
+import initSqlJs, { type Database as SqlJsDatabase, type SqlValue } from "sql.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
-import type { Session, SessionEvent, CreateSessionOpts, EventKind } from "../core/types.ts";
+import type { Session, SessionEvent, CreateSessionOpts, EventKind, SessionType, SessionStatus } from "../core/types.ts";
+
+// ── Row interfaces (raw DB shapes) ────────────────────────
+
+interface SessionRow {
+  id: string; name: string; type: string; status: string;
+  command: string; args: string; cwd: string; pid: number | null;
+  created_at: string; updated_at: string;
+}
+
+interface EventRow {
+  id: number; session_id: string; kind: string; data: string; timestamp: string;
+}
+
+interface CountRow { count: number; }
 
 let db: SqlJsDatabase;
 let dbPath: string;
@@ -76,26 +90,34 @@ export function saveDatabase(): void {
   }
 }
 
+export function closeDatabase(): void {
+  if (saveTimer) {
+    clearInterval(saveTimer);
+    saveTimer = null;
+  }
+  saveDatabase();
+}
+
 // ── Helper to run queries ──────────────────────────────────
 
-function queryAll(sql: string, params: any[] = []): any[] {
+function queryAll<T = Record<string, SqlValue>>(sql: string, params: SqlValue[] = []): T[] {
   const stmt = db.prepare(sql);
   stmt.bind(params);
 
-  const rows: any[] = [];
+  const rows: T[] = [];
   while (stmt.step()) {
-    rows.push(stmt.getAsObject());
+    rows.push(stmt.getAsObject() as T);
   }
   stmt.free();
   return rows;
 }
 
-function queryOne(sql: string, params: any[] = []): any | null {
-  const rows = queryAll(sql, params);
+function queryOne<T = Record<string, SqlValue>>(sql: string, params: SqlValue[] = []): T | null {
+  const rows = queryAll<T>(sql, params);
   return rows.length > 0 ? rows[0] : null;
 }
 
-function execute(sql: string, params: any[] = []): void {
+function execute(sql: string, params: SqlValue[] = []): void {
   db.run(sql, params);
   // Persist immediately — critical for session data surviving crashes
   saveDatabase();
@@ -103,12 +125,12 @@ function execute(sql: string, params: any[] = []): void {
 
 // ── Session queries ────────────────────────────────────────
 
-function rowToSession(row: any): Session {
+function rowToSession(row: SessionRow): Session {
   return {
     id: row.id,
     name: row.name,
-    type: row.type,
-    status: row.status,
+    type: row.type as SessionType,
+    status: row.status as SessionStatus,
     command: row.command,
     args: JSON.parse(row.args),
     cwd: row.cwd,
@@ -127,18 +149,18 @@ export function insertSession(id: string, opts: CreateSessionOpts): Session {
 }
 
 export function getSessionById(id: string): Session | null {
-  const row = queryOne("SELECT * FROM sessions WHERE id = ?", [id]);
+  const row = queryOne<SessionRow>("SELECT * FROM sessions WHERE id = ?", [id]);
   return row ? rowToSession(row) : null;
 }
 
 export function getAllSessions(): Session[] {
-  const rows = queryAll("SELECT * FROM sessions ORDER BY created_at DESC");
+  const rows = queryAll<SessionRow>("SELECT * FROM sessions ORDER BY created_at DESC");
   return rows.map(rowToSession);
 }
 
 export function updateSession(id: string, updates: Partial<Pick<Session, "status" | "pid" | "name">>): Session | null {
   const fields: string[] = [];
-  const values: any[] = [];
+  const values: SqlValue[] = [];
 
   if (updates.status !== undefined) {
     fields.push("status = ?");
@@ -163,7 +185,7 @@ export function updateSession(id: string, updates: Partial<Pick<Session, "status
 }
 
 export function deleteSession(id: string): boolean {
-  const before = queryOne("SELECT COUNT(*) as count FROM sessions WHERE id = ?", [id]);
+  const before = queryOne<CountRow>("SELECT COUNT(*) as count FROM sessions WHERE id = ?", [id]);
   if (!before || before.count === 0) return false;
   execute("DELETE FROM events WHERE session_id = ?", [id]);
   execute("DELETE FROM sessions WHERE id = ?", [id]);
@@ -192,7 +214,7 @@ export function insertEvent(sessionId: string, kind: EventKind, data: string): v
 
 function pruneEvents(sessionId: string, maxEvents: number): void {
   try {
-    const row = queryOne("SELECT COUNT(*) as count FROM events WHERE session_id = ?", [sessionId]);
+    const row = queryOne<CountRow>("SELECT COUNT(*) as count FROM events WHERE session_id = ?", [sessionId]);
     if (row && row.count > maxEvents) {
       const excess = row.count - maxEvents;
       db.run(
@@ -207,21 +229,21 @@ export function getEvents(sessionId: string, opts?: { limit?: number; after?: nu
   const limit = opts?.limit ?? 200;
   const after = opts?.after ?? 0;
 
-  const rows = queryAll(
+  const rows = queryAll<EventRow>(
     "SELECT * FROM events WHERE session_id = ? AND id > ? ORDER BY id ASC LIMIT ?",
     [sessionId, after, limit]
   );
 
-  return rows.map((row: any) => ({
+  return rows.map((row) => ({
     id: row.id,
     sessionId: row.session_id,
-    kind: row.kind,
+    kind: row.kind as EventKind,
     data: row.data,
     timestamp: row.timestamp,
   }));
 }
 
 export function getEventCount(sessionId: string): number {
-  const row = queryOne("SELECT COUNT(*) as count FROM events WHERE session_id = ?", [sessionId]);
+  const row = queryOne<CountRow>("SELECT COUNT(*) as count FROM events WHERE session_id = ?", [sessionId]);
   return row?.count ?? 0;
 }

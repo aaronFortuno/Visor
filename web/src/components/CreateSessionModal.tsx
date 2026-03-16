@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createSession, fetchServerInfo, fetchOllamaModels } from "../lib/api";
+import { createSession, fetchServerInfo, fetchOllamaModels, fetchProjects } from "../lib/api";
 import type { Session } from "../lib/types";
 
 interface Props {
@@ -45,11 +45,8 @@ export function CreateSessionModal({ open, onClose, onCreated }: Props) {
   // Fetch projects and server info on open
   useEffect(() => {
     if (!open) return;
-    fetch("/api/projects", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("visor-token") || ""}` },
-    })
-      .then((r) => r.json())
-      .then((d) => setProjects(d.projects || []))
+    fetchProjects()
+      .then((p) => setProjects(p))
       .catch(() => {});
 
     fetchServerInfo()
@@ -70,7 +67,7 @@ export function CreateSessionModal({ open, onClose, onCreated }: Props) {
         }
       })
       .finally(() => setOllamaModelsLoading(false));
-  }, [open, currentAgent?.isOllama]); // eslint-disable-line
+  }, [open, currentAgent?.isOllama]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open) return null;
 

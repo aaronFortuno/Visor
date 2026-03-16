@@ -71,11 +71,15 @@ export function getSession(id: string): Session | null {
 }
 
 export function listSessions(): Session[] {
-  for (const s of getAllSessions()) {
-    if (s.status === "running" && !isPtyActive(s.id))
+  const sessions = getAllSessions();
+  for (const s of sessions) {
+    if (s.status === "running" && !isPtyActive(s.id)) {
       updateSession(s.id, { status: "error", pid: null });
+      s.status = "error";
+      s.pid = null;
+    }
   }
-  return getAllSessions();
+  return sessions;
 }
 
 export function renameSession(id: string, name: string): Session | null {

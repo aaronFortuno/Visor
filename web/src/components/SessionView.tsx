@@ -143,7 +143,7 @@ export function SessionView({
         xtermScreen.removeEventListener("touchend", onTouchEnd);
       }
     };
-  }, [viewMode, session.id]); // eslint-disable-line
+  }, [viewMode, session.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Output routing: terminal always receives raw output ──
   useEffect(() => {
@@ -179,7 +179,7 @@ export function SessionView({
     return () => {
       wsUnsubscribe(session.id);
     };
-  }, [session.id, viewMode, isOllama]); // eslint-disable-line
+  }, [session.id, viewMode, isOllama]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cleanup terminal on unmount ─────────────────────────
   useEffect(() => {

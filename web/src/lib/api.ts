@@ -46,6 +46,15 @@ function handleResponse(res: Response): Response {
   return res;
 }
 
+// ── Projects ───────────────────────────────────────────────
+
+export async function fetchProjects(): Promise<Array<{ name: string; path: string; markers: string[] }>> {
+  const res = handleResponse(await fetch("/api/projects", { headers: headers() }));
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.projects || [];
+}
+
 // ── Sessions ───────────────────────────────────────────────
 
 export async function fetchSessions(): Promise<Session[]> {

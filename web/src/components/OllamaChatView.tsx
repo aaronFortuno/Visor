@@ -1,26 +1,7 @@
-import { useState, useRef, useEffect, useCallback, Component, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { Session } from "../lib/types";
-import { MarkdownMessage } from "./MarkdownMessage";
+import { SafeMarkdown } from "./SafeMarkdown";
 import { ollamaChat } from "../lib/api";
-
-// ── SafeMarkdown ──────────────────────────────────────────
-
-interface SafeMarkdownState { hasError: boolean }
-
-class MarkdownErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, SafeMarkdownState> {
-  state: SafeMarkdownState = { hasError: false };
-  static getDerivedStateFromError(): SafeMarkdownState { return { hasError: true }; }
-  componentDidCatch() {}
-  render() { return this.state.hasError ? this.props.fallback : this.props.children; }
-}
-
-function SafeMarkdown({ content }: { content: string }) {
-  return (
-    <MarkdownErrorBoundary fallback={<pre className="text-sm text-gray-300 whitespace-pre-wrap break-words font-mono">{content}</pre>}>
-      <MarkdownMessage content={content} />
-    </MarkdownErrorBoundary>
-  );
-}
 
 // ── Types ──────────────────────────────────────────────────
 

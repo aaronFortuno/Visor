@@ -1,30 +1,9 @@
-import { useState, useRef, useEffect, useCallback, Component, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { SessionType } from "../lib/types";
-import { MarkdownMessage } from "./MarkdownMessage";
+import { SafeMarkdown } from "./SafeMarkdown";
 import { OutputAccumulator } from "../lib/pty-parser";
 import { getSlashCommands, type SlashCommand } from "../lib/commands";
-
-// ── SafeMarkdown ──────────────────────────────────────────
-// Error boundary wrapper around MarkdownMessage. If markdown
-// rendering throws, it falls back to displaying raw text.
-
-interface SafeMarkdownProps { content: string }
-interface SafeMarkdownState { hasError: boolean }
-
-class MarkdownErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, SafeMarkdownState> {
-  state: SafeMarkdownState = { hasError: false };
-  static getDerivedStateFromError(): SafeMarkdownState { return { hasError: true }; }
-  componentDidCatch() {}
-  render() { return this.state.hasError ? this.props.fallback : this.props.children; }
-}
-
-function SafeMarkdown({ content }: SafeMarkdownProps) {
-  return (
-    <MarkdownErrorBoundary fallback={<pre className="text-sm text-gray-300 whitespace-pre-wrap break-words font-mono">{content}</pre>}>
-      <MarkdownMessage content={content} />
-    </MarkdownErrorBoundary>
-  );
-}
+import { useInputHistory } from "../hooks/useInputHistory";
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -49,10 +28,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
   const [inputText, setInputText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
-  const [inputHistory, setInputHistory] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem("visor-input-history") || "[]"); } catch { return []; }
-  });
-  const [historyIdx, setHistoryIdx] = useState(-1);
+  const { addToHistory, navigateUp, navigateDown, resetNavigation } = useInputHistory();
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -131,12 +107,9 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
     setTimeout(() => onSend("\r"), 50);
 
     // Save to history
-    const newHistory = [text, ...inputHistory.filter((h) => h !== text)].slice(0, 50);
-    setInputHistory(newHistory);
-    localStorage.setItem("visor-input-history", JSON.stringify(newHistory));
+    addToHistory(text);
 
     setInputText("");
-    setHistoryIdx(-1);
     setShowSlash(false);
     scrollToBottom();
   };
@@ -149,21 +122,14 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
     if (e.key === "Enter" && e.nativeEvent.isComposing) return;
     if (e.key === "ArrowUp" && !inputText) {
       e.preventDefault();
-      const next = Math.min(historyIdx + 1, inputHistory.length - 1);
-      if (next >= 0) {
-        setHistoryIdx(next);
-        setInputText(inputHistory[next]);
-      }
+      const val = navigateUp(inputText);
+      if (val !== null) setInputText(val);
     }
-    if (e.key === "ArrowDown" && historyIdx >= 0) {
-      e.preventDefault();
-      const next = historyIdx - 1;
-      if (next < 0) {
-        setHistoryIdx(-1);
-        setInputText("");
-      } else {
-        setHistoryIdx(next);
-        setInputText(inputHistory[next]);
+    if (e.key === "ArrowDown") {
+      const val = navigateDown();
+      if (val !== null) {
+        e.preventDefault();
+        setInputText(val);
       }
     }
     if (e.key === "/" && !inputText) {
@@ -286,7 +252,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
         <textarea
           ref={inputRef}
           value={inputText}
-          onChange={(e) => { setInputText(e.target.value); setHistoryIdx(-1); }}
+          onChange={(e) => { setInputText(e.target.value); resetNavigation(); }}
           onKeyDown={handleKeyDown}
           enterKeyHint="send"
           placeholder="Type a message or /command..."

@@ -1,10 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import type { Session, WsServerMessage, EventKind } from "../lib/types";
+import type { Session, WsServerMessage, EventKind, SubscribeMode } from "../lib/types";
 import { getToken } from "../lib/api";
 
 type OutputHandler = (sessionId: string, kind: EventKind, data: string) => void;
-
-type SubscribeMode = "raw" | "chat";
 
 interface UseWebSocketReturn {
   connected: boolean;
@@ -58,16 +56,18 @@ export function useWebSocket(): UseWebSocketReturn {
         case "output":
           outputHandlers.current.forEach((h) => h(msg.sessionId, msg.kind, msg.data));
           break;
-        case "question":
+        case "question": {
+          const qMsg = msg as Extract<WsServerMessage, { type: "question" }>;
           // Browser notification when agent asks a question
           if (typeof Notification !== "undefined" && Notification.permission === "granted" && !document.hasFocus()) {
             new Notification("Visor — Agent Question", {
-              body: (msg as any).data?.slice(0, 120) || "An agent needs your input",
-              tag: `visor-q-${(msg as any).sessionId}`,
+              body: qMsg.data?.slice(0, 120) || "An agent needs your input",
+              tag: `visor-q-${qMsg.sessionId}`,
               requireInteraction: true,
             });
           }
           break;
+        }
       }
     };
 

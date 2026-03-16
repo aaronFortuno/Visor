@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context, Next } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { serve } from "@hono/node-server";
@@ -7,7 +8,7 @@ import { existsSync } from "node:fs";
 import { resolve, relative } from "node:path";
 
 import { loadConfig } from "./core/config.ts";
-import { initDatabase, saveDatabase } from "./db/database.ts";
+import { initDatabase, closeDatabase } from "./db/database.ts";
 import { authMiddleware } from "./api/auth.ts";
 import { api } from "./api/routes.ts";
 import { ollamaRouter } from "./agents/ollama.ts";
@@ -28,7 +29,7 @@ function rateLimiter(maxRequests: number, windowMs: number) {
     }
   }, 60_000);
 
-  return async (c: any, next: any) => {
+  return async (c: Context, next: Next) => {
     const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown";
     const now = Date.now();
     const entry = requests.get(ip);
@@ -165,7 +166,7 @@ async function main() {
     console.log("\n  [visor] Shutting down...");
     clearInterval(watchdogInterval);
     suspendAllSessions();
-    saveDatabase();
+    closeDatabase();
     console.log("  [visor] Goodbye.\n");
     process.exit(0);
   }

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { SessionType } from "../lib/types";
 import { getSlashCommands, getContextActions, type SlashCommand } from "../lib/commands";
+import { useInputHistory } from "../hooks/useInputHistory";
 
 interface Props {
   sessionType: SessionType;
@@ -85,12 +86,7 @@ type Panel = "none" | "slash" | "input" | "actions";
 export function MobileToolbar({ sessionType, onSend, onBack }: Props) {
   const [activePanel, setActivePanel] = useState<Panel>("none");
   const [inputText, setInputText] = useState("");
-  const [inputHistory, setInputHistory] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("visor-input-history") || "[]");
-    } catch { return []; }
-  });
-  const [historyIdx, setHistoryIdx] = useState(-1);
+  const { history: inputHistory, addToHistory, navigateUp, navigateDown, resetNavigation } = useInputHistory();
   const [slashFilter, setSlashFilter] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const slashFilterRef = useRef<HTMLInputElement>(null);
@@ -120,30 +116,18 @@ export function MobileToolbar({ sessionType, onSend, onBack }: Props) {
     if (!text) return;
 
     onSend(text + "\r");
-
-    const newHistory = [text, ...inputHistory.filter((h) => h !== text)].slice(0, 50);
-    setInputHistory(newHistory);
-    localStorage.setItem("visor-input-history", JSON.stringify(newHistory));
+    addToHistory(text);
 
     setInputText("");
-    setHistoryIdx(-1);
   };
 
   const handleHistoryNav = (direction: "up" | "down") => {
-    if (inputHistory.length === 0) return;
     if (direction === "up") {
-      const next = Math.min(historyIdx + 1, inputHistory.length - 1);
-      setHistoryIdx(next);
-      setInputText(inputHistory[next]);
+      const val = navigateUp(inputText);
+      if (val !== null) setInputText(val);
     } else {
-      const next = historyIdx - 1;
-      if (next < 0) {
-        setHistoryIdx(-1);
-        setInputText("");
-      } else {
-        setHistoryIdx(next);
-        setInputText(inputHistory[next]);
-      }
+      const val = navigateDown();
+      if (val !== null) setInputText(val);
     }
   };
 
@@ -247,7 +231,7 @@ export function MobileToolbar({ sessionType, onSend, onBack }: Props) {
               ref={inputRef}
               type="text"
               value={inputText}
-              onChange={(e) => { setInputText(e.target.value); setHistoryIdx(-1); }}
+              onChange={(e) => { setInputText(e.target.value); resetNavigation(); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") { e.preventDefault(); handleSendInput(); }
                 if (e.key === "ArrowUp") { e.preventDefault(); handleHistoryNav("up"); }

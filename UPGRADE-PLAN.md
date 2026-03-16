@@ -6,9 +6,20 @@ Organizado en **fases secuenciales**, cada una con tareas concretas que pueden a
 
 ---
 
+## Estado de completitud
+
+> **Fases 1-4 COMPLETADAS** (2026-03-16). Fase 5 (polish/extras) queda pendiente como mejoras futuras post-v1.0.
+
+---
+
 ## Estado actual
 
 ```
+fcc3f4d  Phase 4: CI/CD, Docker, rate limiting, CORS config, WS validation, PWA offline
+302d702  Phase 3: Events API, session rename/search, Ollama chat UI, output replay
+6584cbc  Phase 2: Unify shared types, clean dependencies, fix cross-platform scripts
+a404d18  Phase 1: Add error boundaries, input validation, security headers, and 51 tests
+8b7dee8  Add comprehensive upgrade plan (UPGRADE-PLAN.md)
 d4be89c  Improve security, UX, and code quality across the codebase
 f837802  Add WebSocket auth, server-side chat mode, Ollama router, and cleanup dead code
 063447d  Add mobile chat view, MobileToolbar integration, and PWA support
@@ -16,14 +27,13 @@ f837802  Add WebSocket auth, server-side chat mode, Ollama router, and cleanup d
 63c8884  Initial release: remote agent session manager
 ```
 
-- 5 commits, ~2,800 lineas de codigo de aplicacion
-- 3 workspaces: server, web, cli
-- Zero tests, zero CI/CD
-- Funcional para uso personal en LAN, no preparado para produccion
+- 10 commits, 3 workspaces: server, web, shared (+ cli)
+- Tests, CI/CD, Docker, security hardening — todo implementado
+- Listo para uso en produccion
 
 ---
 
-## Fase 1 — Estabilidad y fiabilidad
+## Fase 1 — Estabilidad y fiabilidad ✅ COMPLETADA
 
 **Objetivo**: Que la aplicacion no se rompa en uso normal. Error boundaries, validacion, y tests criticos.
 
@@ -56,11 +66,11 @@ f837802  Add WebSocket auth, server-side chat mode, Ollama router, and cleanup d
 | C4. Tests de pty-parser | Nuevo `web/src/lib/pty-parser.test.ts`, `web/vitest.config.ts` | Setup vitest para web. Tests del OutputAccumulator: push texto limpio, strip ANSI, deduplicacion, flush, clear. |
 | C5. Tests de database | Nuevo `server/src/db/database.test.ts` | Tests: insert/get/update/delete session, insertEvent, pruneEvents, getEvents (aunque sin ruta, la funcion existe). Usar DB in-memory. |
 
-**Commit al final de Fase 1**: `"Add error boundaries, input validation, security headers, and core tests"`
+**Commit**: `a404d18 Phase 1: Add error boundaries, input validation, security headers, and 51 tests`
 
 ---
 
-## Fase 2 — Limpieza y arquitectura
+## Fase 2 — Limpieza y arquitectura ✅ COMPLETADA
 
 **Objetivo**: Eliminar deuda tecnica, unificar tipos, limpiar dependencias.
 
@@ -84,11 +94,11 @@ f837802  Add WebSocket auth, server-side chat mode, Ollama router, and cleanup d
 | E6. Fix package naming | `web/package.json` | Renombrar `"name": "web"` a `"name": "@visor/web"` para consistencia con server y cli. |
 | E7. Fix dev script cross-platform | Root `package.json` | El script `dev` usa `&` (bash background). Usar `concurrently` o `npm-run-all` para que funcione en Windows CMD tambien. |
 
-**Commit al final de Fase 2**: `"Unify shared types, clean dependencies, fix cross-platform scripts"`
+**Commit**: `6584cbc Phase 2: Unify shared types, clean dependencies, fix cross-platform scripts`
 
 ---
 
-## Fase 3 — Features completas
+## Fase 3 — Features completas ✅ COMPLETADA
 
 **Objetivo**: Completar las features a medio construir y anadir las mas demandadas.
 
@@ -118,11 +128,11 @@ f837802  Add WebSocket auth, server-side chat mode, Ollama router, and cleanup d
 | H3. OllamaChatView component | Nuevo `web/src/components/OllamaChatView.tsx` | Similar a ChatView pero conecta directamente al API de Ollama, no a un PTY. Input de usuario -> POST /api/ollama/chat -> stream response -> render como markdown bubbles. Reusar MarkdownMessage. |
 | H4. Integrar en SessionView | `web/src/components/SessionView.tsx` | Si la sesion es type "ollama", mostrar OllamaChatView en vez de Terminal/ChatView. Sin toggle terminal (no hay PTY). |
 
-**Commit al final de Fase 3**: `"Complete Events API, session rename/search, and Ollama chat UI"`
+**Commit**: `302d702 Phase 3: Events API, session rename/search, Ollama chat UI, output replay`
 
 ---
 
-## Fase 4 — Produccion
+## Fase 4 — Produccion ✅ COMPLETADA
 
 **Objetivo**: Preparar para despliegue real. CI/CD, containerizacion, hardening.
 
@@ -152,7 +162,7 @@ f837802  Add WebSocket auth, server-side chat mode, Ollama router, and cleanup d
 | K2. Generar iconos PNG para PWA | `web/public/` | Usar sharp o un script para generar `icon-192.png` y `icon-512.png` desde el SVG. Actualizar manifest.json para incluir PNG junto a SVG. |
 | K3. Offline fallback page | `web/public/offline.html`, `web/public/sw.js` | Cuando el servidor no esta disponible y no hay cache, mostrar una pagina dedicada "Server offline — check your connection" en vez de un error 503. |
 
-**Commit al final de Fase 4**: `"Add CI/CD, Docker support, rate limiting, and PWA improvements"`
+**Commit**: `fcc3f4d Phase 4: CI/CD, Docker, rate limiting, CORS config, WS validation, PWA offline`
 
 ---
 
