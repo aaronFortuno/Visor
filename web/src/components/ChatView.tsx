@@ -1,8 +1,39 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Component, type ReactNode } from "react";
 import type { SessionType } from "../lib/types";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { OutputAccumulator } from "../lib/pty-parser";
 import { getSlashCommands, type SlashCommand } from "../lib/commands";
+
+// ── SafeMarkdown ──────────────────────────────────────────
+// Error boundary wrapper around MarkdownMessage. If markdown
+// rendering throws, it falls back to displaying raw text.
+
+interface SafeMarkdownProps { content: string }
+interface SafeMarkdownState { hasError: boolean }
+
+class MarkdownErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, SafeMarkdownState> {
+  state: SafeMarkdownState = { hasError: false };
+  static getDerivedStateFromError(): SafeMarkdownState { return { hasError: true }; }
+  componentDidCatch() {}
+  render() { return this.state.hasError ? this.props.fallback : this.props.children; }
+}
+
+function SafeMarkdown({ content }: SafeMarkdownProps) {
+  return (
+    <MarkdownErrorBoundary fallback={<pre className="text-sm text-gray-300 whitespace-pre-wrap break-words font-mono">{content}</pre>}>
+      <MarkdownMessage content={content} />
+    </MarkdownErrorBoundary>
+  );
+}
+
+// ── Types ──────────────────────────────────────────────────
+
+interface ChatLine {
+  id: number;
+  text: string;
+  kind: "output" | "input" | "system";
+  ts: number;
+}
 
 interface Props {
   sessionId: string;
@@ -14,7 +45,7 @@ interface Props {
 // ── Component ──────────────────────────────────────────────
 
 export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
-  const [lines, setLines] = useState<Array<{ text: string; kind: "output" | "input" | "system"; ts: number }>>([]);
+  const [lines, setLines] = useState<ChatLine[]>([]);
   const [inputText, setInputText] = useState("");
   const [showSlash, setShowSlash] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
@@ -26,6 +57,8 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const accumulatorRef = useRef(new OutputAccumulator());
+  const lineIdRef = useRef(0);
+  const nextId = () => ++lineIdRef.current;
 
   const slashCommands = getSlashCommands(sessionType);
   const filteredSlash = slashFilter
@@ -58,7 +91,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
           };
           return updated;
         }
-        return [...prev, { text: cleanText, kind: "output" as const, ts: Date.now() }];
+        return [...prev, { id: nextId(), text: cleanText, kind: "output" as const, ts: Date.now() }];
       });
       scrollToBottom();
     };
@@ -89,7 +122,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
     if (!text) return;
 
     // Add to chat as user message
-    setLines((prev) => [...prev, { text, kind: "input", ts: Date.now() }]);
+    setLines((prev) => [...prev, { id: nextId(), text, kind: "input", ts: Date.now() }]);
 
     // Send text to PTY, then Enter separately after a small delay.
     // Some TUI apps (opencode, claude) treat pasted text differently
@@ -143,7 +176,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
 
   const handleSlashSelect = (cmd: SlashCommand) => {
     onSend(cmd.command + "\r");
-    setLines((prev) => [...prev, { text: cmd.command, kind: "input", ts: Date.now() }]);
+    setLines((prev) => [...prev, { id: nextId(), text: cmd.command, kind: "input", ts: Date.now() }]);
     setShowSlash(false);
     setSlashFilter("");
     scrollToBottom();
@@ -179,9 +212,9 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
           </div>
         )}
 
-        {lines.map((line, i) => (
+        {lines.map((line) => (
           <div
-            key={i}
+            key={line.id}
             className={`animate-fade-in ${
               line.kind === "input" ? "flex justify-end" : ""
             }`}
@@ -192,7 +225,7 @@ export function ChatView({ sessionId, sessionType, onSend, onOutput }: Props) {
               </div>
             ) : (
               <div className="max-w-[95%] rounded-lg px-3 py-2.5 bg-visor-card border border-visor-border">
-                <MarkdownMessage content={line.text} />
+                <SafeMarkdown content={line.text} />
               </div>
             )}
           </div>

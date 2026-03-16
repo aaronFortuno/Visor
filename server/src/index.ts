@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
@@ -38,12 +37,31 @@ async function main() {
 
   const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
-  app.use("*", logger());
+  // Custom logger that masks token values in URLs
+  app.use("*", async (c, next) => {
+    const start = Date.now();
+    await next();
+    const url = c.req.url.replace(/token=[^&]+/, "token=***");
+    const parsed = new URL(url);
+    const status = c.res.status;
+    const ms = Date.now() - start;
+    console.log(`  ${c.req.method} ${parsed.pathname}${parsed.search} ${status} ${ms}ms`);
+  });
+
   app.use("*", cors({
     origin: "*",
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
   }));
+
+  // Security headers
+  app.use("*", async (c, next) => {
+    await next();
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("X-Frame-Options", "DENY");
+    c.header("Referrer-Policy", "no-referrer");
+    c.header("X-XSS-Protection", "0");
+  });
 
   app.use("/api/*", authMiddleware(config.authToken));
 

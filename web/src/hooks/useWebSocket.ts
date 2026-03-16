@@ -39,7 +39,13 @@ export function useWebSocket(): UseWebSocketReturn {
     };
 
     ws.onmessage = (event) => {
-      const msg: WsServerMessage = JSON.parse(event.data);
+      let msg: WsServerMessage;
+      try {
+        msg = JSON.parse(event.data);
+      } catch (e) {
+        console.warn("[WebSocket] Failed to parse message:", e);
+        return;
+      }
       switch (msg.type) {
         case "session:list": setSessions(msg.sessions); break;
         case "session:update":

@@ -4,6 +4,7 @@ import { useWebSocket } from "./hooks/useWebSocket";
 import { LoginScreen } from "./components/LoginScreen";
 import { Dashboard } from "./components/Dashboard";
 import { SessionView } from "./components/SessionView";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import type { Session } from "./lib/types";
 
 function App() {
@@ -22,17 +23,21 @@ function App() {
   return (
     <div className="h-dvh flex flex-col">
       {current ? (
-        <SessionView
-          session={current}
-          onBack={handleBack}
-          wsSubscribe={subscribe}
-          wsUnsubscribe={unsubscribe}
-          wsSendInput={sendInput}
-          wsResize={resize}
-          onOutput={onOutput}
-        />
+        <ErrorBoundary fallbackMessage="Session view crashed unexpectedly">
+          <SessionView
+            session={current}
+            onBack={handleBack}
+            wsSubscribe={subscribe}
+            wsUnsubscribe={unsubscribe}
+            wsSendInput={sendInput}
+            wsResize={resize}
+            onOutput={onOutput}
+          />
+        </ErrorBoundary>
       ) : (
-        <Dashboard sessions={sessions} onSelectSession={handleSelect} connected={connected} />
+        <ErrorBoundary fallbackMessage="Dashboard crashed unexpectedly">
+          <Dashboard sessions={sessions} onSelectSession={handleSelect} connected={connected} />
+        </ErrorBoundary>
       )}
     </div>
   );

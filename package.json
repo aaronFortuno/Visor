@@ -17,6 +17,9 @@
     "build": "npm run build:web",
     "start": "node --experimental-strip-types start-with-env.js",
     "start:bare": "node --experimental-strip-types server/src/index.ts",
+    "test:server": "npm run test -w server",
+    "test:web": "npm run test -w web",
+    "test": "npm run test:server && npm run test:web",
     "production": "npm run build && npm run start"
   }
 }

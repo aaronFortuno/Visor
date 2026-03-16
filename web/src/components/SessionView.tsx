@@ -25,6 +25,8 @@ export function SessionView({
   session, onBack, wsSubscribe, wsUnsubscribe, wsSendInput, wsResize, onOutput,
 }: Props) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [controlLoading, setControlLoading] = useState(false);
+  const [controlError, setControlError] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     // Default to chat on mobile, terminal on desktop
     if (typeof window !== "undefined" && window.innerWidth < 768) return "chat";
@@ -181,13 +183,26 @@ export function SessionView({
   // ── Session controls ────────────────────────────────────
 
   const handleControl = async (action: "start" | "stop" | "restart") => {
-    try { await controlSession(session.id, action); } catch (e: any) { console.error(e.message); }
+    setControlLoading(true);
+    setControlError("");
+    try { await controlSession(session.id, action); }
+    catch (e: any) { setControlError(e.message || "Control action failed"); }
+    finally { setControlLoading(false); }
   };
 
   const handleDelete = async () => {
+    setControlLoading(true);
+    setControlError("");
     try { await apiDeleteSession(session.id); onBack(); }
-    catch (e: any) { console.error(e.message); }
+    catch (e: any) { setControlError(e.message || "Delete failed"); setControlLoading(false); }
   };
+
+  // Auto-dismiss error toast after 3 seconds
+  useEffect(() => {
+    if (!controlError) return;
+    const timer = setTimeout(() => setControlError(""), 3000);
+    return () => clearTimeout(timer);
+  }, [controlError]);
 
   const handleSendInput = useCallback(
     (data: string) => wsSendInput(session.id, data),
@@ -247,23 +262,30 @@ export function SessionView({
         <div className="flex items-center gap-0.5 shrink-0">
           {session.status === "running" ? (
             <>
-              <button onClick={() => handleControl("restart")} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-yellow rounded-lg" title="Restart">
+              <button onClick={() => handleControl("restart")} disabled={controlLoading} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-yellow disabled:opacity-40 disabled:pointer-events-none rounded-lg" title="Restart">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               </button>
-              <button onClick={() => handleControl("stop")} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-red rounded-lg" title="Stop">
+              <button onClick={() => handleControl("stop")} disabled={controlLoading} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-red disabled:opacity-40 disabled:pointer-events-none rounded-lg" title="Stop">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" /></svg>
               </button>
             </>
           ) : (
-            <button onClick={() => handleControl("start")} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-green rounded-lg" title="Start">
+            <button onClick={() => handleControl("start")} disabled={controlLoading} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-green disabled:opacity-40 disabled:pointer-events-none rounded-lg" title="Start">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </button>
           )}
-          <button onClick={() => setShowDeleteConfirm(true)} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-red rounded-lg" title="Delete">
+          <button onClick={() => setShowDeleteConfirm(true)} disabled={controlLoading} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-visor-red disabled:opacity-40 disabled:pointer-events-none rounded-lg" title="Delete">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>
         </div>
       </div>
+
+      {/* ── Error toast ────────────────────────────────────── */}
+      {controlError && (
+        <div className="px-3 py-2 bg-visor-red/20 border-b border-visor-red/30 text-visor-red text-xs font-medium animate-fade-in">
+          {controlError}
+        </div>
+      )}
 
       {/* ── Content area ───────────────────────────────────── */}
 

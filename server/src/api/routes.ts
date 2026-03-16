@@ -2,12 +2,17 @@ import { Hono } from "hono";
 import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { loadConfig } from "../core/config.ts";
 import {
   createAndStartSession, createSession, startSession, stopSession,
   removeSession, sendInput, resizeSession, getSession, listSessions, restartSession,
 } from "../core/session-manager.ts";
-import type { CreateSessionOpts } from "../core/types.ts";
+import type { CreateSessionOpts, SessionType } from "../core/types.ts";
+
+// ── Cached health config (computed once at module load) ────
+const serverPlatform = process.platform;
+const serverShell = process.env.VISOR_SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/bash");
+
+const VALID_SESSION_TYPES: SessionType[] = ["claude-code", "opencode", "ollama", "custom"];
 
 export const api = new Hono();
 
@@ -20,6 +25,17 @@ api.get("/sessions/:id", (c) => {
 
 api.post("/sessions", async (c) => {
   const body = await c.req.json<CreateSessionOpts & { autoStart?: boolean }>();
+
+  if (!body.name || typeof body.name !== "string" || body.name.trim() === "") {
+    return c.json({ error: "name is required and must be a non-empty string" }, 400);
+  }
+  if (!body.type || !VALID_SESSION_TYPES.includes(body.type)) {
+    return c.json({ error: `type must be one of: ${VALID_SESSION_TYPES.join(", ")}` }, 400);
+  }
+  if (!body.command || typeof body.command !== "string" || body.command.trim() === "") {
+    return c.json({ error: "command is required and must be a non-empty string" }, 400);
+  }
+
   const { autoStart = true, ...opts } = body;
   try {
     const session = autoStart ? createAndStartSession(opts) : createSession(opts);
@@ -48,25 +64,33 @@ api.post("/sessions/:id/restart", (c) => {
 });
 
 api.post("/sessions/:id/input", async (c) => {
-  const { data } = await c.req.json<{ data: string }>();
-  try { sendInput(c.req.param("id"), data); return c.json({ ok: true }); }
+  const body = await c.req.json<{ data: string }>();
+  if (typeof body.data !== "string") {
+    return c.json({ error: "data is required and must be a string" }, 400);
+  }
+  try { sendInput(c.req.param("id"), body.data); return c.json({ ok: true }); }
   catch (err: any) { return c.json({ error: err.message }, 400); }
 });
 
 api.post("/sessions/:id/resize", async (c) => {
-  const { cols, rows } = await c.req.json<{ cols: number; rows: number }>();
-  try { resizeSession(c.req.param("id"), cols, rows); return c.json({ ok: true }); }
+  const body = await c.req.json<{ cols: number; rows: number }>();
+  if (!Number.isInteger(body.cols) || body.cols <= 0) {
+    return c.json({ error: "cols must be a positive integer" }, 400);
+  }
+  if (!Number.isInteger(body.rows) || body.rows <= 0) {
+    return c.json({ error: "rows must be a positive integer" }, 400);
+  }
+  try { resizeSession(c.req.param("id"), body.cols, body.rows); return c.json({ ok: true }); }
   catch (err: any) { return c.json({ error: err.message }, 400); }
 });
 
 api.get("/health", (c) => {
-  const config = loadConfig();
   return c.json({
     status: "ok",
     uptime: process.uptime(),
     sessions: listSessions().length,
-    platform: process.platform,
-    defaultShell: config.defaultShell,
+    platform: serverPlatform,
+    defaultShell: serverShell,
   });
 });
 
