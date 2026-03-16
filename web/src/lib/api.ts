@@ -55,13 +55,6 @@ export async function fetchSessions(): Promise<Session[]> {
   return data.sessions;
 }
 
-export async function fetchSession(id: string): Promise<Session> {
-  const res = handleResponse(await fetch(`/api/sessions/${id}`, { headers: headers() }));
-  if (!res.ok) throw new Error(`${res.status}`);
-  const data = await res.json();
-  return data.session;
-}
-
 export async function createSession(opts: {
   name: string;
   type: string;
@@ -105,15 +98,6 @@ export async function controlSession(
   }
   const data = await res.json();
   return data.session;
-}
-
-export async function sendInput(id: string, data: string): Promise<void> {
-  const res = handleResponse(await fetch(`/api/sessions/${id}/input`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({ data }),
-  }));
-  if (!res.ok) throw new Error(`${res.status}`);
 }
 
 // ── Server info ────────────────────────────────────────────

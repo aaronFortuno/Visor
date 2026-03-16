@@ -4,13 +4,17 @@
   "private": true,
   "description": "Remote agent session manager — monitor and interact with AI agents from any device",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "workspaces": [
+    "shared",
     "server",
     "web",
     "cli"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=server & npm run dev --workspace=web",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
     "dev:server": "npm run dev --workspace=server",
     "dev:web": "npm run dev --workspace=web",
     "build:web": "npm run build --workspace=web",
@@ -21,5 +25,8 @@
     "test:web": "npm run test -w web",
     "test": "npm run test:server && npm run test:web",
     "production": "npm run build && npm run start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }

@@ -10,8 +10,7 @@
     "dev": "node --experimental-strip-types src/index.ts"
   },
   "dependencies": {
-    "ws": "^8.18.0",
-    "strip-ansi": "^7.1.0"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/ws": "^8.5.14",

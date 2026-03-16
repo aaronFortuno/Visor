@@ -95,7 +95,3 @@ export function killPty(sessionId: string): boolean {
 export function isPtyActive(sessionId: string): boolean {
   return activePtys.has(sessionId);
 }
-
-export function getPtyPid(sessionId: string): number | undefined {
-  return activePtys.get(sessionId)?.process.pid;
-}
