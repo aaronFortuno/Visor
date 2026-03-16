@@ -27,6 +27,7 @@ export function loadConfig(): VisorConfig {
     authToken: process.env.VISOR_TOKEN || generateToken(),
     dbPath: resolveDbPath(),
     defaultShell: process.env.VISOR_SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/bash"),
+    corsOrigin: process.env.VISOR_CORS_ORIGIN || "*",
   };
 
   if (!process.env.VISOR_TOKEN) {

@@ -14,6 +14,38 @@ import { ollamaRouter } from "./agents/ollama.ts";
 import { handleWsOpen, handleWsMessage, handleWsClose } from "./ws/handler.ts";
 import { restoreSuspendedSessions, suspendAllSessions, watchdogCheck } from "./core/session-manager.ts";
 
+// ── Rate limiter ───────────────────────────────────────────
+
+// Simple in-memory rate limiter
+function rateLimiter(maxRequests: number, windowMs: number) {
+  const requests = new Map<string, { count: number; resetAt: number }>();
+
+  // Cleanup stale entries every minute
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of requests) {
+      if (val.resetAt < now) requests.delete(key);
+    }
+  }, 60_000);
+
+  return async (c: any, next: any) => {
+    const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown";
+    const now = Date.now();
+    const entry = requests.get(ip);
+
+    if (!entry || entry.resetAt < now) {
+      requests.set(ip, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    entry.count++;
+    if (entry.count > maxRequests) {
+      return c.json({ error: "Too many requests" }, 429);
+    }
+    return next();
+  };
+}
+
 // ── Bootstrap ──────────────────────────────────────────────
 
 async function main() {
@@ -49,7 +81,7 @@ async function main() {
   });
 
   app.use("*", cors({
-    origin: "*",
+    origin: config.corsOrigin,
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
   }));
@@ -62,6 +94,9 @@ async function main() {
     c.header("Referrer-Policy", "no-referrer");
     c.header("X-XSS-Protection", "0");
   });
+
+  // Rate limit API routes: 200 requests per minute per IP
+  app.use("/api/*", rateLimiter(200, 60_000));
 
   app.use("/api/*", authMiddleware(config.authToken));
 

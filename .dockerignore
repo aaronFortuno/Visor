@@ -1,0 +1,10 @@
+node_modules
+.git
+.env
+data/
+web/dist/
+web/node_modules/
+server/node_modules/
+cli/node_modules/
+shared/node_modules/
+*.md

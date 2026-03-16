@@ -1,0 +1,15 @@
+services:
+  visor:
+    build: .
+    ports:
+      - "3100:3100"
+    environment:
+      - VISOR_TOKEN=${VISOR_TOKEN:-changeme}
+      - VISOR_PORT=3100
+      - VISOR_HOST=0.0.0.0
+    volumes:
+      - visor-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  visor-data:

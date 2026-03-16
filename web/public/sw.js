@@ -7,7 +7,8 @@
  * - If network fails, serve from cache
  */
 
-const CACHE_NAME = "visor-v1";
+const CACHE_NAME = "visor-v2";
+const FONTS_CACHE = "visor-fonts-v1";
 
 // Assets to pre-cache on install
 const PRECACHE_URLS = [
@@ -15,6 +16,7 @@ const PRECACHE_URLS = [
   "/favicon.svg",
   "/icon-192.svg",
   "/icon-512.svg",
+  "/offline.html",
 ];
 
 // ── Install: pre-cache shell ──────────────────────────────
@@ -32,7 +34,11 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter((k) => k !== CACHE_NAME && k !== FONTS_CACHE)
+          .map((k) => caches.delete(k))
+      )
     )
   );
   self.clients.claim();
@@ -49,7 +55,26 @@ self.addEventListener("fetch", (event) => {
   // Skip WebSocket upgrades and API calls — always network
   if (url.pathname.startsWith("/ws") || url.pathname.startsWith("/api/")) return;
 
-  // Skip cross-origin requests (fonts CDN, etc.) — let browser handle
+  // Cache Google Fonts with cache-first strategy
+  if (
+    url.hostname === "fonts.googleapis.com" ||
+    url.hostname === "fonts.gstatic.com"
+  ) {
+    event.respondWith(
+      caches.open(FONTS_CACHE).then((cache) =>
+        cache.match(event.request).then((cached) => {
+          if (cached) return cached;
+          return fetch(event.request).then((response) => {
+            if (response.ok) cache.put(event.request, response.clone());
+            return response;
+          });
+        })
+      )
+    );
+    return;
+  }
+
+  // Skip other cross-origin requests — let browser handle
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
@@ -66,9 +91,11 @@ self.addEventListener("fetch", (event) => {
         // Network failed — try cache
         return caches.match(event.request).then((cached) => {
           if (cached) return cached;
-          // Last resort: return the cached index.html for navigation requests
+          // Last resort: for navigation, try index.html then offline page
           if (event.request.mode === "navigate") {
-            return caches.match("/");
+            return caches
+              .match("/")
+              .then((index) => index || caches.match("/offline.html"));
           }
           return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
         });

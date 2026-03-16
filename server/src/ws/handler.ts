@@ -2,7 +2,7 @@ import type { WSContext } from "hono/ws";
 import { bus } from "../core/emitter.ts";
 import { sendInput, resizeSession, listSessions } from "../core/session-manager.ts";
 import { ScreenBuffer } from "../core/screen-buffer.ts";
-import type { WsServerMessage, SubscribeMode } from "../core/types.ts";
+import type { WsClientMessage, WsServerMessage, SubscribeMode } from "../core/types.ts";
 
 interface Subscription {
   mode: SubscribeMode;
@@ -20,6 +20,18 @@ function send(ws: WSContext, msg: WsServerMessage): void {
   try { ws.send(JSON.stringify(msg)); } catch { /* disconnected */ }
 }
 
+function validateWsMessage(msg: any): msg is WsClientMessage {
+  if (!msg || typeof msg !== "object" || typeof msg.type !== "string") return false;
+  switch (msg.type) {
+    case "subscribe": return typeof msg.sessionId === "string";
+    case "unsubscribe": return typeof msg.sessionId === "string";
+    case "input": return typeof msg.sessionId === "string" && typeof msg.data === "string";
+    case "resize": return typeof msg.sessionId === "string" && typeof msg.cols === "number" && typeof msg.rows === "number";
+    case "ping": return true;
+    default: return false;
+  }
+}
+
 export function handleWsOpen(ws: WSContext): void {
   clients.set(ws, { subscriptions: new Map() });
   send(ws, { type: "session:list", sessions: listSessions() });
@@ -33,6 +45,11 @@ export function handleWsMessage(ws: WSContext, raw: string | ArrayBuffer): void 
   try {
     msg = JSON.parse(typeof raw === "string" ? raw : new TextDecoder().decode(raw));
   } catch { return; }
+
+  if (!validateWsMessage(msg)) {
+    send(ws, { type: "error", message: "Invalid message format" });
+    return;
+  }
 
   switch (msg.type) {
     case "subscribe": {

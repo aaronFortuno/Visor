@@ -8,4 +8,5 @@ export interface VisorConfig {
   authToken: string;
   dbPath: string;
   defaultShell: string;
+  corsOrigin: string;
 }

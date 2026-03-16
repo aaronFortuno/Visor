@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visor — Offline</title>
+  <style>
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:#0a0a0f; color:#e4e4ef; font-family:system-ui,-apple-system,sans-serif; }
+    .container { text-align:center; padding:2rem; }
+    h1 { font-size:2rem; margin-bottom:0.5rem; }
+    p { color:#9ca3af; margin-bottom:1.5rem; }
+    button { background:#6366f1; color:white; border:none; padding:0.75rem 2rem; border-radius:0.5rem; font-size:1rem; cursor:pointer; }
+    button:hover { background:#4f46e5; }
+    .icon { margin-bottom:1rem; }
+    .icon svg { width:48px; height:48px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="24" r="20" stroke="#6366f1" stroke-width="3" fill="none"/>
+        <line x1="24" y1="14" x2="24" y2="28" stroke="#e4e4ef" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="24" cy="34" r="2" fill="#e4e4ef"/>
+      </svg>
+    </div>
+    <h1>Server Offline</h1>
+    <p>Cannot reach the Visor server. Check your connection and make sure the server is running.</p>
+    <button onclick="window.location.reload()">Retry</button>
+  </div>
+</body>
+</html>
