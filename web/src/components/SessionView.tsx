@@ -27,7 +27,6 @@ export function SessionView({
 }: Props) {
   const isOllama = session.type === "ollama";
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 768) return "chat";
     return "terminal";
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
